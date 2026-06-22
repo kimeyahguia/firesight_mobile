@@ -1,53 +1,50 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+// ────────────────────────────────────────────────────────────
+// FIRESIGHT Theme
+// Centralized color tokens — import this anywhere you need
+// consistent colors instead of redefining them per screen.
+//
+// Usage:
+//   import { COLORS, RISK_COLORS, ALERT_COLORS } from '@/constants/theme-colors';
+// ────────────────────────────────────────────────────────────
 
-import { Platform } from 'react-native';
+export const COLORS = {
+  // Brand
+  primaryOrange: '#F97316',
+  deepIndigo: '#1E1B4B',
+  accentViolet: '#6D5BD0',
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+  // Text
+  slateText: '#5B5A78',
+  mutedText: '#A6A4C2',
 
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  // Surfaces
+  background: '#FFFFFF',
+  card: '#FFFFFF',
+  surfaceMuted: '#F4F3FB',
+  border: '#E7E5F5',
+
+  // Status
+  warningAmber: '#F59E0B',
+  successGreen: '#16A34A',
+  criticalRed: '#DC2626',
+
+  // Misc fixed tones used in specific components
+  contactIconBg: '#FFF1E6',
+} as const;
+
+export type RiskLevel = 'Low' | 'Moderate' | 'High';
+
+export const RISK_COLORS: Record<RiskLevel, { bg: string; text: string; dot: string }> = {
+  Low: { bg: '#ECFDF5', text: '#16A34A', dot: '#16A34A' },
+  Moderate: { bg: '#FFF7ED', text: '#C2410C', dot: '#F97316' },
+  High: { bg: '#FEF2F2', text: '#DC2626', dot: '#DC2626' },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export type AlertType = 'Warning' | 'Update' | 'Drill' | 'Resolved';
+
+export const ALERT_COLORS: Record<AlertType, { bg: string; text: string }> = {
+  Warning: { bg: '#FEF2F2', text: '#DC2626' },
+  Update: { bg: '#EEF2FF', text: '#6D5BD0' },
+  Drill: { bg: '#FFF7ED', text: '#C2410C' },
+  Resolved: { bg: '#ECFDF5', text: '#16A34A' },
+};
