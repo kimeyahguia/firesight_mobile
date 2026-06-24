@@ -31,7 +31,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarActiveTintColor: COLORS.primaryOrange,
-        tabBarInactiveTintColor: COLORS.slateText,
+        tabBarInactiveTintColor: COLORS.mutedText,
         tabBarStyle: {
           backgroundColor: COLORS.card,
           borderTopColor: COLORS.border,
@@ -72,20 +72,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="contacts"
+        name="awareness"
         options={{
-          title: 'Contacts',
+          title: 'Learn',
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="call" size={size ?? 24} color={color} />
+            <Ionicons name="book" size={size ?? 24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="alerts"
+        name="profile"
         options={{
-          title: 'Alerts',
+          title: 'Profile',
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="notifications" size={size ?? 24} color={color} />
+            <Ionicons name="person" size={size ?? 24} color={color} />
           ),
         }}
       />
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.card,
     shadowColor: COLORS.primaryOrange,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
   },
