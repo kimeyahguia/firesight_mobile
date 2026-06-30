@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { COLORS } from '@/constants/theme';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
 
 function ReportTabButton({
   onPress,
@@ -18,7 +18,7 @@ function ReportTabButton({
         onPress={onPress}
         activeOpacity={0.85}
       >
-        <Ionicons name="flame" size={26} color="#FFFFFF" />
+        <Ionicons name="flame" size={32} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -41,7 +41,7 @@ export default function TabLayout() {
           paddingBottom: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: FONT_SIZES.tiny,
           fontWeight: '600',
         },
       }}
@@ -89,6 +89,16 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Hidden screens — exist inside (tabs) for shared layout/navigation
+          context, but excluded from the bottom tab bar via href: null.
+          Reachable only through router.push(), never shown as a tab icon. */}
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
@@ -100,19 +110,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   reportButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: COLORS.primaryOrange,
     alignItems: 'center',
     justifyContent: 'center',
-    top: -22,
-    borderWidth: 4,
+    top: -28,
+    borderWidth: 5,
     borderColor: COLORS.card,
     shadowColor: COLORS.primaryOrange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 7,
   },
 });

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+
 import {
   View,
   Text,
@@ -9,9 +10,11 @@ import {
   SafeAreaView,
   Image,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS } from '@/constants/theme';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
+import AppHeader from '@/components/common/AppHeader';
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -142,9 +145,10 @@ const PREFERENCE_ITEMS: PreferenceItem[] = [
 // Sub-components
 // ────────────────────────────────────────────────────────────
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function SectionHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
   return (
     <View style={styles.sectionHeaderWrap}>
+      {eyebrow ? <Text style={styles.sectionEyebrow}>{eyebrow}</Text> : null}
       <Text style={styles.sectionTitle}>{title}</Text>
       {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
     </View>
@@ -250,16 +254,13 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <Text style={styles.headerSubtitle}>Your account, readiness, and preferences.</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.7} style={styles.headerIconButton}>
-            <Ionicons name="settings-outline" size={20} color={COLORS.deepIndigo} />
-          </TouchableOpacity>
-        </View>
+        {/* Header — shared AppHeader component, gear icon routes to /settings */}
+        <AppHeader
+          title="Profile"
+          subtitle="Your account, readiness, and preferences"
+          showBrand={false}
+          rightAction={{ icon: 'settings-outline', onPress: () => router.push('/settings') }}
+        />
 
         {/* Profile Hero Card */}
         <View style={styles.heroCard}>
@@ -326,6 +327,7 @@ export default function ProfileScreen() {
 
         {/* Safety Readiness Snapshot */}
         <SectionHeader
+          eyebrow="Status"
           title="Safety Readiness"
           subtitle={`${readinessDone} of ${readinessTotal} items completed`}
         />
@@ -344,7 +346,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Activity Overview */}
-        <SectionHeader title="My Activity" subtitle="Your FIRESIGHT contributions" />
+        <SectionHeader eyebrow="Overview" title="My Activity" subtitle="Your FIRESIGHT contributions" />
         <View style={styles.statsRow}>
           {ACTIVITY_STATS.map((stat) => (
             <ActivityStatCard key={stat.id} stat={stat} />
@@ -352,7 +354,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Trusted Contacts */}
-        <SectionHeader title="Trusted Emergency Contacts" />
+        <SectionHeader eyebrow="Safety Network" title="Trusted Emergency Contacts" />
         <View style={styles.card}>
           {TRUSTED_CONTACTS.map((contact, index) => (
             <View key={contact.id}>
@@ -383,7 +385,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* App Preferences */}
-        <SectionHeader title="Account & Preferences" />
+        <SectionHeader eyebrow="Settings" title="Account & Preferences" />
         <View style={styles.card}>
           {PREFERENCE_ITEMS.map((item, index) => (
             <View key={item.id}>
@@ -396,6 +398,7 @@ export default function ProfileScreen() {
         {/* Safety Resources Shortcut */}
         <View style={styles.resourcesCard}>
           <View style={styles.resourcesLeft}>
+            <Text style={styles.resourcesEyebrow}>Keep Learning</Text>
             <Text style={styles.resourcesTitle}>Continue Learning</Text>
             <Text style={styles.resourcesSubtitle}>
               You've read 5 guides. Review home fire prevention basics next.
@@ -436,39 +439,12 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
 
-  // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 22,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.deepIndigo,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: COLORS.slateText,
-  },
-  headerIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: COLORS.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
   // Hero Card
   heroCard: {
     backgroundColor: COLORS.deepIndigo,
     borderRadius: 22,
     padding: 20,
+    marginTop: 20,
     marginBottom: 28,
     shadowColor: COLORS.deepIndigo,
     shadowOffset: { width: 0, height: 8 },
@@ -509,7 +485,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.appBar,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -529,13 +505,13 @@ const styles = StyleSheet.create({
 
   heroMeta: { flex: 1 },
   heroName: {
-    fontSize: 17,
+    fontSize: FONT_SIZES.cardTitle,
     fontWeight: '800',
     color: '#FFFFFF',
     marginBottom: 3,
   },
   heroSub: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.caption,
     color: 'rgba(255,255,255,0.6)',
     marginBottom: 8,
   },
@@ -554,7 +530,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heroBadgeText: {
-    fontSize: 10,
+    fontSize: FONT_SIZES.tiny,
     fontWeight: '700',
     color: '#FED7AA',
   },
@@ -568,7 +544,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heroLocationText: {
-    fontSize: 10,
+    fontSize: FONT_SIZES.tiny,
     color: 'rgba(255,255,255,0.6)',
     fontWeight: '600',
   },
@@ -583,13 +559,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroStatValue: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.cardTitle,
     fontWeight: '800',
     color: '#FFFFFF',
     marginBottom: 2,
   },
   heroStatLabel: {
-    fontSize: 10.5,
+    fontSize: FONT_SIZES.tiny,
     color: 'rgba(255,255,255,0.55)',
     fontWeight: '600',
   },
@@ -599,15 +575,23 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 
-  // Section header
+  // Section header — eyebrow + title + subtitle hierarchy
   sectionHeaderWrap: { marginBottom: 12 },
+  sectionEyebrow: {
+    fontSize: FONT_SIZES.tiny,
+    fontWeight: '700',
+    color: COLORS.primaryOrange,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: FONT_SIZES.cardTitle,
     fontWeight: '700',
     color: COLORS.deepIndigo,
   },
   sectionSubtitle: {
-    fontSize: 12.5,
+    fontSize: FONT_SIZES.caption,
     color: COLORS.slateText,
     marginTop: 2,
   },
@@ -615,12 +599,17 @@ const styles = StyleSheet.create({
   // Generic card
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 16,
     marginBottom: 24,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
 
   // Readiness
@@ -653,7 +642,7 @@ const styles = StyleSheet.create({
   },
   readinessLabel: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: FONT_SIZES.secondary,
     color: COLORS.deepIndigo,
     fontWeight: '500',
   },
@@ -674,12 +663,17 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 14,
     alignItems: 'center',
     gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
   statIconWrap: {
     width: 36,
@@ -690,12 +684,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: FONT_SIZES.appBar,
     fontWeight: '800',
     color: COLORS.deepIndigo,
   },
   statLabel: {
-    fontSize: 10.5,
+    fontSize: FONT_SIZES.tiny,
     color: COLORS.slateText,
     fontWeight: '600',
     textAlign: 'center',
@@ -717,19 +711,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contactAvatarText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.accentViolet,
   },
   contactInfo: { flex: 1 },
   contactName: {
-    fontSize: 13.5,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.deepIndigo,
     marginBottom: 2,
   },
   contactMeta: {
-    fontSize: 11.5,
+    fontSize: FONT_SIZES.caption,
     color: COLORS.slateText,
   },
   contactCallButton: {
@@ -747,7 +741,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   addContactText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.primaryOrange,
   },
@@ -758,11 +752,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 14,
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
   hotlineLeft: {
     flexDirection: 'row',
@@ -778,13 +777,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hotlineName: {
-    fontSize: 13.5,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.deepIndigo,
     marginBottom: 2,
   },
   hotlineNumber: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.caption,
     color: COLORS.slateText,
   },
   hotlineCallButton: {
@@ -812,13 +811,13 @@ const styles = StyleSheet.create({
   },
   prefText: { flex: 1 },
   prefTitle: {
-    fontSize: 13.5,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.deepIndigo,
     marginBottom: 2,
   },
   prefSubtitle: {
-    fontSize: 11.5,
+    fontSize: FONT_SIZES.caption,
     color: COLORS.slateText,
     lineHeight: 15,
   },
@@ -828,7 +827,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surfaceMuted,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 16,
@@ -836,14 +835,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resourcesLeft: { flex: 1 },
+  resourcesEyebrow: {
+    fontSize: FONT_SIZES.tiny,
+    fontWeight: '700',
+    color: COLORS.accentViolet,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
   resourcesTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.deepIndigo,
     marginBottom: 4,
   },
   resourcesSubtitle: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.caption,
     color: COLORS.slateText,
     lineHeight: 16,
   },
@@ -859,7 +866,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   resourcesButtonText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.deepIndigo,
   },
@@ -871,20 +878,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingVertical: 15,
     marginBottom: 16,
   },
   logoutText: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.secondary,
     fontWeight: '700',
     color: COLORS.criticalRed,
   },
   versionText: {
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: FONT_SIZES.tiny,
     color: COLORS.mutedText,
     marginBottom: 8,
   },

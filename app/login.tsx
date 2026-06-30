@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { COLORS } from '@/constants/theme';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
 
 import FormInput from '@/components/common/FormInput';
 import PrimaryButton from '@/components/common/PrimaryButton';
@@ -219,6 +219,16 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+
+  title: {
+    fontSize: FONT_SIZES.screenTitle, // = 28
+    color: COLORS.deepIndigo,
+  },
+  body: {
+    fontSize: FONT_SIZES.body, // = 16
+    color: COLORS.slateText,
+  },
+  
   gradientFill: {
     flex: 1,
   },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '@/constants/theme';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
 
 interface AppHeaderProps {
   title: string;
@@ -13,6 +13,7 @@ interface AppHeaderProps {
   showBrand?: boolean;
   showLogout?: boolean;
   onLogoutPress?: () => void;
+  rightAction?: { icon: keyof typeof Ionicons.glyphMap; onPress?: () => void };
 }
 
 export default function AppHeader({
@@ -25,6 +26,7 @@ export default function AppHeader({
   showBrand = true,
   showLogout = false,
   onLogoutPress,
+  rightAction,
 }: AppHeaderProps) {
   return (
     <View>
@@ -50,12 +52,16 @@ export default function AppHeader({
       <View style={styles.headerRow}>
         <Text style={styles.greeting}>{title}</Text>
 
-        {showBell && (
+        {rightAction ? (
+          <TouchableOpacity activeOpacity={0.7} style={styles.bellButton} onPress={rightAction.onPress}>
+            <Ionicons name={rightAction.icon} size={20} color={COLORS.deepIndigo} />
+          </TouchableOpacity>
+        ) : showBell ? (
           <TouchableOpacity activeOpacity={0.7} style={styles.bellButton} onPress={onBellPress}>
             <Ionicons name="notifications-outline" size={22} color={COLORS.deepIndigo} />
             {hasNotification && <View style={styles.bellDot} />}
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {showLocation && subtitle ? (
@@ -92,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandText: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.cardTitle,
     fontWeight: '800',
     color: COLORS.deepIndigo,
     letterSpacing: 0.8,
@@ -118,13 +124,13 @@ const styles = StyleSheet.create({
   },
   greeting: {
     flex: 1,
-    fontSize: 22,
+    fontSize: FONT_SIZES.sectionHeading,
     fontWeight: '700',
     color: COLORS.deepIndigo,
     letterSpacing: -0.3,
   },
   subtitleText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.secondary,
     color: COLORS.slateText,
     fontWeight: '500',
     marginTop: 4,
@@ -137,7 +143,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   locationText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.secondary,
     color: COLORS.slateText,
     fontWeight: '500',
   },

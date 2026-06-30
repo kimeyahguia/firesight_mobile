@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,13 @@ import {
   StatusBar,
   SafeAreaView,
   Alert,
+  Animated,
+  Image,
+  Linking,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { COLORS, RISK_COLORS, RiskLevel } from '@/constants/theme';
 
 // ────────────────────────────────────────────────────────────
@@ -29,6 +34,8 @@ type IncidentType =
 
 type YesNoUnsure = 'Yes' | 'No' | 'Unsure';
 
+type SubmitState = 'idle' | 'submitting' | 'done';
+
 interface ToggleQuestion {
   key: 'peopleAtRisk' | 'fireActive' | 'respondersOnSite';
   label: string;
@@ -38,6 +45,8 @@ interface ToggleQuestion {
 // ────────────────────────────────────────────────────────────
 // Mock Data
 // ────────────────────────────────────────────────────────────
+
+const STEPS = ['Photo', 'Details', 'Review'] as const;
 
 const SEVERITY_LEVELS: SeverityLevel[] = ['Low', 'Moderate', 'High', 'Critical'];
 
@@ -58,10 +67,19 @@ const INCIDENT_TYPES: IncidentType[] = [
 ];
 
 const TOGGLE_QUESTIONS: ToggleQuestion[] = [
-  { key: 'peopleAtRisk', label: 'Are people currently at risk?', icon: 'people' },
+  { key: 'peopleAtRisk', label: 'Are people trapped or at risk?', icon: 'people' },
   { key: 'fireActive', label: 'Is the fire still active?', icon: 'flame' },
   { key: 'respondersOnSite', label: 'Are responders already on site?', icon: 'shield-checkmark' },
 ];
+
+function generateReferenceId() {
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `FS-${y}${m}${d}-${rand}`;
+}
 
 // ────────────────────────────────────────────────────────────
 // Sub-components
@@ -187,16 +205,49 @@ function YesNoSelector({
   );
 }
 
+function StepProgress({ currentStep }: { currentStep: number }) {
+  return (
+    <View style={styles.progressWrap}>
+      <View style={styles.progressTopRow}>
+        <Text style={styles.progressStepText}>
+          Step {currentStep + 1} of {STEPS.length}
+        </Text>
+        <Text style={styles.progressLabelText}>{STEPS[currentStep]}</Text>
+      </View>
+      <View style={styles.progressTrack}>
+        {STEPS.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.progressSegment,
+              index <= currentStep && styles.progressSegmentActive,
+              index === STEPS.length - 1 && { marginRight: 0 },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 // Main Screen
 // ────────────────────────────────────────────────────────────
 
 export default function ReportScreen() {
-  const [hasPhoto, setHasPhoto] = useState(false);
+  const [step, setStep] = useState(0);
+  const [submitState, setSubmitState] = useState<SubmitState>('idle');
+  const [referenceId, setReferenceId] = useState('');
+
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
+
   const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [barangay, setBarangay] = useState('');
   const [streetLandmark, setStreetLandmark] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const [whatIsOnFire, setWhatIsOnFire] = useState('');
   const [severity, setSeverity] = useState<SeverityLevel>('Moderate');
@@ -213,38 +264,131 @@ export default function ReportScreen() {
   const [contactNumber, setContactNumber] = useState('');
 
   const severityPalette = SEVERITY_COLORS[severity];
+  const scrollRef = useRef<ScrollView>(null);
+  const spinValue = useRef(new Animated.Value(0)).current;
 
-  // ── Auto-detect location on mount ──
-  useEffect(() => {
+  // ── Real GPS location fetch ──
+  async function fetchRealLocation() {
     setLocationLoading(true);
-    // TODO: replace this block with real expo-location when backend is ready:
-    // const { status } = await Location.requestForegroundPermissionsAsync();
-    // if (status === 'granted') {
-    //   const loc = await Location.getCurrentPositionAsync({});
-    //   const [place] = await Location.reverseGeocodeAsync(loc.coords);
-    //   setBarangay(place.subregion ?? '');
-    //   setStreetLandmark(place.street ?? '');
-    // }
-    setTimeout(() => {
-      setBarangay('Lian Proper');
-      setStreetLandmark('Near Lian Public Market, Purok 3');
-      setLocationDetails('Beside the barangay hall');
+    setLocationError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied. Enable it in settings to auto-detect your location.');
+        setLocationLoading(false);
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+
+      const [place] = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      if (place) {
+        setBarangay(place.district || place.subregion || place.city || '');
+        setStreetLandmark(
+          [place.street, place.name].filter(Boolean).join(', ') || 'Unknown street'
+        );
+      }
+    } catch (err) {
+      setLocationError('Could not detect your location. Please check your GPS and try again.');
+    } finally {
       setLocationLoading(false);
-    }, 1000);
+    }
+  }
+
+  useEffect(() => {
+    fetchRealLocation();
   }, []);
 
-  // ── Submit handler ──
-  function handleSubmit() {
-    if (!barangay || !streetLandmark) {
-      Alert.alert('Missing Info', 'Please fill in at least the barangay and street/landmark.');
+  // ── Loading spinner animation while submitting ──
+  useEffect(() => {
+    if (submitState === 'submitting') {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [submitState]);
+
+  function goToStep(index: number) {
+    setStep(index);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function handleNext() {
+    if (step === 0) {
+      goToStep(1);
+      return;
+    }
+    if (step === 1) {
+      if (!barangay || !streetLandmark) {
+        Alert.alert('Missing Info', 'Please fill in at least the barangay and street/landmark.');
+        return;
+      }
+      goToStep(2);
+      return;
+    }
+  }
+
+  function handleBack() {
+    if (step > 0) goToStep(step - 1);
+  }
+
+  // ── Camera-only photo capture ──
+  async function handleTakePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Camera Permission Needed',
+        'FIRESIGHT needs camera access to capture proof of the incident. Gallery uploads are disabled to keep reports authentic.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]
+      );
       return;
     }
 
+    setCameraLoading(true);
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.7,
+        exif: false,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Camera Error', 'Something went wrong while opening the camera.');
+    } finally {
+      setCameraLoading(false);
+    }
+  }
+
+  // ── Submit handler ──
+  function handleSubmit() {
+    setSubmitState('submitting');
+
     const report = {
-      photo: hasPhoto,
+      photo: photoUri,
       barangay,
       streetLandmark,
       locationDetails,
+      locationCoords: coords,
       whatIsOnFire,
       severity,
       incidentType,
@@ -259,20 +403,18 @@ export default function ReportScreen() {
 
     console.log('Fire Report Submitted:', JSON.stringify(report, null, 2));
 
-    // TODO: replace Alert with fetch() POST when backend is ready
-    Alert.alert(
-      '🔥 Report Submitted',
-      `Incident: ${incidentType}\nSeverity: ${severity}\nLocation: ${streetLandmark}, ${barangay}\nReporter: ${fullName || 'Anonymous'}\n\nYour report has been forwarded to BFP Lian Fire Station.`,
-      [{ text: 'OK', onPress: handleClear }]
-    );
+    // TODO: replace this timeout with real fetch() POST when backend is ready
+    setTimeout(() => {
+      setReferenceId(generateReferenceId());
+      setSubmitState('done');
+    }, 1600);
   }
 
-  // ── Clear handler ──
+  // ── Clear / reset handler ──
   function handleClear() {
-    setHasPhoto(false);
-    setBarangay('Lian Proper');
-    setStreetLandmark('Near Lian Public Market, Purok 3');
-    setLocationDetails('Beside the barangay hall');
+    setPhotoUri(null);
+    fetchRealLocation();
+    setLocationDetails('');
     setWhatIsOnFire('');
     setSeverity('Moderate');
     setIncidentType('Residential Fire');
@@ -280,301 +422,456 @@ export default function ReportScreen() {
     setToggleAnswers({ peopleAtRisk: 'Unsure', fireActive: 'Yes', respondersOnSite: 'No' });
     setFullName('');
     setContactNumber('');
+    setSubmitState('idle');
+    setReferenceId('');
+    goToStep(0);
+  }
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  // ── Submission success screen ──
+  if (submitState === 'done') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <View style={styles.successContainer}>
+          <View style={styles.successIconCircle}>
+            <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+          </View>
+          <Text style={styles.successTitle}>Report Sent to Responders</Text>
+          <Text style={styles.successSubtitle}>
+            BFP Lian Fire Station has received your report and will respond as soon as possible.
+          </Text>
+
+          <View style={styles.refCard}>
+            <Text style={styles.refCardLabel}>Reference ID</Text>
+            <Text style={styles.refCardValue}>{referenceId}</Text>
+            <View style={styles.refCardDivider} />
+            <View style={styles.refStatusRow}>
+              <View style={styles.refStatusDot} />
+              <Text style={styles.refStatusText}>Status: Submitted — awaiting dispatch</Text>
+            </View>
+          </View>
+
+          <View style={styles.successSummaryBox}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabelDark}>Incident</Text>
+              <Text style={styles.summaryValueDark}>{incidentType}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabelDark}>Severity</Text>
+              <Text style={styles.summaryValueDark}>{severity}</Text>
+            </View>
+            <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.summaryLabelDark}>Location</Text>
+              <Text style={styles.summaryValueDark}>{streetLandmark}, {barangay}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.85} style={styles.submitButton} onPress={handleClear}>
+            <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.submitButtonText}>Submit Another Report</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.submitHelperText}>
+            Keep your reference ID for tracking and follow-up.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      {/* Header + Step progress (fixed, outside scroll) */}
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.headerTitle}>Report Fire</Text>
+          <Text style={styles.headerSubtitle}>
+            Submit a fire incident report for faster emergency response
+          </Text>
+        </View>
+        <TouchableOpacity activeOpacity={0.7} style={styles.headerIconButton}>
+          <Ionicons name="help-circle-outline" size={20} color={COLORS.deepIndigo} />
+        </TouchableOpacity>
+      </View>
+
+      <StepProgress currentStep={step} />
+
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerTitle}>Report Fire</Text>
-            <Text style={styles.headerSubtitle}>
-              Submit a fire incident report for faster emergency response
-            </Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.7} style={styles.headerIconButton}>
-            <Ionicons name="help-circle-outline" size={20} color={COLORS.deepIndigo} />
-          </TouchableOpacity>
-        </View>
+        {/* ── STEP 1: Photo ── */}
+        {step === 0 && (
+          <>
+            <View style={styles.noticeCard}>
+              <View style={styles.noticeTopRow}>
+                <Ionicons name="alert-circle" size={18} color={COLORS.primaryOrange} />
+                <Text style={styles.noticeTitle}>Before you continue</Text>
+              </View>
+              <Text style={styles.noticeText}>
+                Use this form to report active fire incidents, smoke, or urgent fire-related
+                hazards in your area.
+              </Text>
+              <Text style={styles.noticeTextStrong}>
+                If the fire is actively spreading, call emergency responders immediately while
+                submitting this report.
+              </Text>
+              <View style={styles.hotlineRow}>
+                <Ionicons name="call" size={14} color={COLORS.deepIndigo} />
+                <Text style={styles.hotlineText}>BFP Lian Fire Station · (043) 740 1234</Text>
+              </View>
+            </View>
 
-        {/* Emergency Notice */}
-        <View style={styles.noticeCard}>
-          <View style={styles.noticeTopRow}>
-            <Ionicons name="alert-circle" size={18} color={COLORS.primaryOrange} />
-            <Text style={styles.noticeTitle}>Before you continue</Text>
-          </View>
-          <Text style={styles.noticeText}>
-            Use this form to report active fire incidents, smoke, or urgent fire-related
-            hazards in your area.
-          </Text>
-          <Text style={styles.noticeTextStrong}>
-            If the fire is actively spreading, call emergency responders immediately while
-            submitting this report.
-          </Text>
-          <View style={styles.hotlineRow}>
-            <Ionicons name="call" size={14} color={COLORS.deepIndigo} />
-            <Text style={styles.hotlineText}>BFP Lian Fire Station · (043) 740 1234</Text>
-          </View>
-        </View>
+            <SectionCard icon="camera" title="Incident Photo">
+              <View style={styles.uploadArea}>
+                {photoUri ? (
+                  <View style={styles.uploadPreview}>
+                    <Image source={{ uri: photoUri }} style={styles.photoPreviewImage} />
+                    <TouchableOpacity
+                      onPress={() => setPhotoUri(null)}
+                      activeOpacity={0.7}
+                      style={styles.uploadRemoveBadge}
+                    >
+                      <Ionicons name="close-circle" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.uploadEmpty}>
+                    <View style={styles.uploadIconCircle}>
+                      <Ionicons name="camera-outline" size={26} color={COLORS.accentViolet} />
+                    </View>
+                    <Text style={styles.uploadEmptyText}>No photo captured yet</Text>
+                  </View>
+                )}
+              </View>
 
-        {/* Incident Photo */}
-        <SectionCard icon="camera" title="Incident Photo">
-          <View style={styles.uploadArea}>
-            {hasPhoto ? (
-              <View style={styles.uploadPreview}>
-                <Ionicons name="image" size={32} color={COLORS.primaryOrange} />
-                <Text style={styles.uploadPreviewText}>Photo attached</Text>
-                <TouchableOpacity onPress={() => setHasPhoto(false)} activeOpacity={0.7}>
-                  <Text style={styles.uploadRemoveText}>Remove</Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.uploadButtonFull, styles.uploadButtonPrimary]}
+                onPress={handleTakePhoto}
+                disabled={cameraLoading}
+              >
+                <Ionicons name="camera" size={16} color="#FFFFFF" />
+                <Text style={styles.uploadButtonPrimaryText}>
+                  {cameraLoading ? 'Opening camera…' : photoUri ? 'Retake Photo' : 'Take Photo'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.integrityNote}>
+                <Ionicons name="shield-checkmark-outline" size={13} color={COLORS.mutedText} />
+                <Text style={styles.helperText}>
+                  Camera only — gallery uploads are disabled to ensure photo authenticity.
+                </Text>
+              </View>
+            </SectionCard>
+
+            <SectionCard icon="location" title="Location">
+              {locationLoading ? (
+                <View style={styles.locationLoadingRow}>
+                  <Ionicons name="locate" size={15} color={COLORS.primaryOrange} />
+                  <Text style={styles.locationLoadingText}>Detecting your location…</Text>
+                </View>
+              ) : locationError ? (
+                <View style={styles.locationLoadingRow}>
+                  <Ionicons name="warning" size={15} color={COLORS.criticalRed} />
+                  <Text style={[styles.locationLoadingText, { color: COLORS.criticalRed, fontStyle: 'normal' }]}>
+                    {locationError}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.locationSummaryRow}>
+                  <Ionicons name="navigate" size={16} color={COLORS.primaryOrange} />
+                  <Text style={styles.locationSummaryText}>
+                    Detected near {streetLandmark || 'your area'}, {barangay}, Batangas
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.miniMapPreview}>
+                <View style={styles.miniMapPin}>
+                  <Ionicons name="location" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.miniMapGrid} />
+              </View>
+
+              <View style={styles.gpsChipRow}>
+                <View style={styles.gpsChip}>
+                  <Ionicons
+                    name={locationLoading ? 'ellipse' : locationError ? 'close-circle' : 'checkmark-circle'}
+                    size={13}
+                    color={locationLoading ? COLORS.mutedText : locationError ? COLORS.criticalRed : COLORS.successGreen}
+                  />
+                  <Text style={styles.gpsChipText}>
+                    {locationLoading ? 'Locating via GPS…' : locationError ? 'GPS unavailable' : 'GPS location locked'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.refreshIconButton}
+                  onPress={fetchRealLocation}
+                >
+                  <Ionicons name="refresh" size={15} color={COLORS.deepIndigo} />
                 </TouchableOpacity>
               </View>
-            ) : (
-              <View style={styles.uploadEmpty}>
-                <View style={styles.uploadIconCircle}>
-                  <Ionicons name="camera-outline" size={26} color={COLORS.accentViolet} />
+            </SectionCard>
+          </>
+        )}
+
+        {/* ── STEP 2: Incident Details ── */}
+        {step === 1 && (
+          <>
+            <SectionCard icon="location" title="Confirm Location">
+              <FieldLabel label="Barangay" />
+              <TextInput
+                value={barangay}
+                onChangeText={setBarangay}
+                placeholder="e.g. Lian Proper"
+                placeholderTextColor={COLORS.mutedText}
+                style={styles.textInput}
+              />
+
+              <FieldLabel label="Street / Landmark" />
+              <TextInput
+                value={streetLandmark}
+                onChangeText={setStreetLandmark}
+                placeholder="e.g. Near Lian Public Market"
+                placeholderTextColor={COLORS.mutedText}
+                style={styles.textInput}
+              />
+
+              <FieldLabel label="Additional location details" optional />
+              <TextInput
+                value={locationDetails}
+                onChangeText={setLocationDetails}
+                placeholder="e.g. Behind the basketball court"
+                placeholderTextColor={COLORS.mutedText}
+                style={styles.textInput}
+              />
+            </SectionCard>
+
+            <SectionCard icon="document-text" title="Incident Details">
+              <FieldLabel label="What is on fire?" />
+              <TextInput
+                value={whatIsOnFire}
+                onChangeText={setWhatIsOnFire}
+                placeholder="e.g. House, grass, electrical post, vehicle"
+                placeholderTextColor={COLORS.mutedText}
+                style={styles.textInput}
+              />
+
+              <FieldLabel label="Severity level" />
+              <View style={styles.severityRow}>
+                {SEVERITY_LEVELS.map((level) => (
+                  <SeverityChip
+                    key={level}
+                    level={level}
+                    active={severity === level}
+                    onPress={() => setSeverity(level)}
+                  />
+                ))}
+              </View>
+
+              <FieldLabel label="Type of incident" />
+              <View style={styles.typeChipsWrap}>
+                {INCIDENT_TYPES.map((type) => (
+                  <IncidentTypeChip
+                    key={type}
+                    type={type}
+                    active={incidentType === type}
+                    onPress={() => setIncidentType(type)}
+                  />
+                ))}
+              </View>
+
+              <FieldLabel label="Description / What is happening?" />
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Describe the situation in detail..."
+                placeholderTextColor={COLORS.mutedText}
+                style={[styles.textInput, styles.textArea]}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </SectionCard>
+
+            <SectionCard icon="warning" title="Situation Context">
+              {TOGGLE_QUESTIONS.map((question, index) => (
+                <View key={question.key} style={index > 0 ? styles.toggleQuestionSpacer : undefined}>
+                  <View style={styles.toggleQuestionRow}>
+                    <Ionicons name={question.icon} size={15} color={COLORS.slateText} />
+                    <Text style={styles.toggleQuestionLabel}>{question.label}</Text>
+                  </View>
+                  <YesNoSelector
+                    value={toggleAnswers[question.key]}
+                    onChange={(v) =>
+                      setToggleAnswers((prev) => ({ ...prev, [question.key]: v }))
+                    }
+                  />
                 </View>
-                <Text style={styles.uploadEmptyText}>No photo attached yet</Text>
+              ))}
+            </SectionCard>
+
+            <SectionCard icon="person" title="Your Information">
+              <FieldLabel label="Full Name" optional />
+              <TextInput
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Juan Dela Cruz"
+                placeholderTextColor={COLORS.mutedText}
+                style={styles.textInput}
+              />
+
+              <FieldLabel label="Contact Number" optional />
+              <TextInput
+                value={contactNumber}
+                onChangeText={setContactNumber}
+                placeholder="09XX XXX XXXX"
+                placeholderTextColor={COLORS.mutedText}
+                keyboardType="phone-pad"
+                style={styles.textInput}
+              />
+
+              <Text style={styles.helperText}>
+                Responders may contact you if more details are needed.
+              </Text>
+            </SectionCard>
+          </>
+        )}
+
+        {/* ── STEP 3: Review Summary ── */}
+        {step === 2 && (
+          <>
+            <SectionCard icon="image" title="Photo Preview">
+              <View style={styles.uploadArea}>
+                {photoUri ? (
+                  <View style={styles.uploadPreview}>
+                    <Image source={{ uri: photoUri }} style={styles.photoPreviewImage} />
+                  </View>
+                ) : (
+                  <View style={styles.uploadEmpty}>
+                    <Ionicons name="image-outline" size={26} color={COLORS.mutedText} />
+                    <Text style={styles.uploadEmptyText}>No photo attached</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            </SectionCard>
 
-          {/* Camera only — no gallery */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.uploadButtonFull}
-            onPress={() => setHasPhoto(true)}
-          >
-            <Ionicons name="camera" size={16} color={COLORS.deepIndigo} />
-            <Text style={styles.uploadButtonSecondaryText}>Take Photo</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.helperText}>
-            Add a clear image of the fire, smoke, or affected area if it is safe to do so.
-          </Text>
-        </SectionCard>
-
-        {/* Incident Location */}
-        <SectionCard icon="location" title="Incident Location">
-          {locationLoading ? (
-            <View style={styles.locationLoadingRow}>
-              <Ionicons name="locate" size={15} color={COLORS.primaryOrange} />
-              <Text style={styles.locationLoadingText}>Detecting your location…</Text>
-            </View>
-          ) : (
-            <View style={styles.locationSummaryRow}>
-              <Ionicons name="navigate" size={16} color={COLORS.primaryOrange} />
+            <SectionCard icon="map" title="Map Pin">
+              <View style={styles.miniMapPreview}>
+                <View style={styles.miniMapPin}>
+                  <Ionicons name="location" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.miniMapGrid} />
+              </View>
               <Text style={styles.locationSummaryText}>
-                Detected near {streetLandmark}, {barangay}, Batangas
+                {streetLandmark}, {barangay}, Batangas
               </Text>
-            </View>
-          )}
+            </SectionCard>
 
-          <View style={styles.miniMapPreview}>
-            <View style={styles.miniMapPin}>
-              <Ionicons name="location" size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.miniMapGrid} />
-          </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Report Summary</Text>
 
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>What's on fire</Text>
+                <Text style={styles.summaryValue}>{whatIsOnFire || 'Not specified'}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Severity</Text>
+                <View style={[styles.summarySeverityBadge, { backgroundColor: severityPalette.bg }]}>
+                  <Text style={[styles.summarySeverityText, { color: '#FFFFFF' }]}>
+                    {severity}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Incident Type</Text>
+                <Text style={styles.summaryValue}>{incidentType}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>People at risk</Text>
+                <Text style={styles.summaryValue}>{toggleAnswers.peopleAtRisk}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Fire active</Text>
+                <Text style={styles.summaryValue}>{toggleAnswers.fireActive}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Reporter</Text>
+                <Text style={styles.summaryValue}>{fullName || 'Anonymous'}</Text>
+              </View>
+
+              <View style={styles.summaryEmergencyNote}>
+                <Ionicons name="alert-circle" size={14} color={COLORS.primaryOrange} />
+                <Text style={styles.summaryEmergencyText}>
+                  If the fire is still spreading, call BFP Lian directly while this report is sent.
+                </Text>
+              </View>
+
+              <View style={styles.summaryReadyRow}>
+                <Ionicons name="checkmark-circle" size={15} color={COLORS.successGreen} />
+                <Text style={styles.summaryReadyText}>Ready to submit</Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        <View style={{ height: 16 }} />
+      </ScrollView>
+
+      {/* Fixed bottom nav buttons */}
+      <View style={styles.bottomBar}>
+        {step > 0 && (
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.locationUpdateButton}
-            onPress={() => {
-              setLocationLoading(true);
-              setTimeout(() => {
-                setBarangay('Lian Proper');
-                setStreetLandmark('Near Lian Public Market, Purok 3');
-                setLocationDetails('Beside the barangay hall');
-                setLocationLoading(false);
-              }, 1000);
-            }}
+            style={styles.backButton}
+            onPress={handleBack}
+            disabled={submitState === 'submitting'}
           >
-            <Ionicons name="locate" size={15} color={COLORS.deepIndigo} />
-            <Text style={styles.locationUpdateButtonText}>Refresh Location</Text>
+            <Ionicons name="chevron-back" size={18} color={COLORS.deepIndigo} />
           </TouchableOpacity>
+        )}
 
-          <FieldLabel label="Barangay" />
-          <TextInput
-            value={barangay}
-            onChangeText={setBarangay}
-            placeholder="e.g. Lian Proper"
-            placeholderTextColor={COLORS.mutedText}
-            style={styles.textInput}
-          />
-
-          <FieldLabel label="Street / Landmark" />
-          <TextInput
-            value={streetLandmark}
-            onChangeText={setStreetLandmark}
-            placeholder="e.g. Near Lian Public Market"
-            placeholderTextColor={COLORS.mutedText}
-            style={styles.textInput}
-          />
-
-          <FieldLabel label="Additional location details" optional />
-          <TextInput
-            value={locationDetails}
-            onChangeText={setLocationDetails}
-            placeholder="e.g. Behind the basketball court"
-            placeholderTextColor={COLORS.mutedText}
-            style={styles.textInput}
-          />
-        </SectionCard>
-
-        {/* Incident Details */}
-        <SectionCard icon="document-text" title="Incident Details">
-          <FieldLabel label="What is on fire?" />
-          <TextInput
-            value={whatIsOnFire}
-            onChangeText={setWhatIsOnFire}
-            placeholder="e.g. House, grass, electrical post, vehicle"
-            placeholderTextColor={COLORS.mutedText}
-            style={styles.textInput}
-          />
-
-          <FieldLabel label="Severity level" />
-          <View style={styles.severityRow}>
-            {SEVERITY_LEVELS.map((level) => (
-              <SeverityChip
-                key={level}
-                level={level}
-                active={severity === level}
-                onPress={() => setSeverity(level)}
-              />
-            ))}
-          </View>
-
-          <FieldLabel label="Type of incident" />
-          <View style={styles.typeChipsWrap}>
-            {INCIDENT_TYPES.map((type) => (
-              <IncidentTypeChip
-                key={type}
-                type={type}
-                active={incidentType === type}
-                onPress={() => setIncidentType(type)}
-              />
-            ))}
-          </View>
-
-          <FieldLabel label="Description / What is happening?" />
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe the situation in detail..."
-            placeholderTextColor={COLORS.mutedText}
-            style={[styles.textInput, styles.textArea]}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </SectionCard>
-
-        {/* Situation Context */}
-        <SectionCard icon="warning" title="Situation Context">
-          {TOGGLE_QUESTIONS.map((question, index) => (
-            <View key={question.key} style={index > 0 ? styles.toggleQuestionSpacer : undefined}>
-              <View style={styles.toggleQuestionRow}>
-                <Ionicons name={question.icon} size={15} color={COLORS.slateText} />
-                <Text style={styles.toggleQuestionLabel}>{question.label}</Text>
-              </View>
-              <YesNoSelector
-                value={toggleAnswers[question.key]}
-                onChange={(v) =>
-                  setToggleAnswers((prev) => ({ ...prev, [question.key]: v }))
-                }
-              />
-            </View>
-          ))}
-        </SectionCard>
-
-        {/* Reporter Information */}
-        <SectionCard icon="person" title="Your Information">
-          <FieldLabel label="Full Name" />
-          <TextInput
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Juan Dela Cruz"
-            placeholderTextColor={COLORS.mutedText}
-            style={styles.textInput}
-          />
-
-          <FieldLabel label="Contact Number" />
-          <TextInput
-            value={contactNumber}
-            onChangeText={setContactNumber}
-            placeholder="09XX XXX XXXX"
-            placeholderTextColor={COLORS.mutedText}
-            keyboardType="phone-pad"
-            style={styles.textInput}
-          />
-
-          <Text style={styles.helperText}>
-            Responders may contact you if more details are needed.
-          </Text>
-        </SectionCard>
-
-        {/* Report Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Report Summary</Text>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Photo</Text>
-            <Text style={styles.summaryValue}>
-              {hasPhoto ? 'Attached' : 'Not attached'}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Location</Text>
-            <Text style={styles.summaryValue}>
-              {barangay || 'Detecting…'}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Severity</Text>
-            <View style={[styles.summarySeverityBadge, { backgroundColor: severityPalette.bg }]}>
-              <Text style={[styles.summarySeverityText, { color: severityPalette.text === '#FFFFFF' ? '#FFFFFF' : severityPalette.text }]}>
-                {severity}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Incident Type</Text>
-            <Text style={styles.summaryValue}>{incidentType}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Reporter</Text>
-            <Text style={styles.summaryValue}>{fullName || 'Not set'}</Text>
-          </View>
-
-          <View style={styles.summaryReadyRow}>
-            <Ionicons name="checkmark-circle" size={15} color={COLORS.successGreen} />
-            <Text style={styles.summaryReadyText}>Ready to submit</Text>
-          </View>
-        </View>
-
-        {/* Submit Action */}
-        <TouchableOpacity activeOpacity={0.85} style={styles.submitButton} onPress={handleSubmit}>
-          <MaterialCommunityIcons name="fire-alert" size={18} color="#FFFFFF" />
-          <Text style={styles.submitButtonText}>Submit Report</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity activeOpacity={0.7} style={styles.clearButton} onPress={handleClear}>
-          <Text style={styles.clearButtonText}>Clear Form</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.submitHelperText}>
-          Your report will be forwarded to the appropriate fire response personnel.
-        </Text>
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
+        {step < 2 ? (
+          <TouchableOpacity activeOpacity={0.85} style={styles.nextButton} onPress={handleNext}>
+            <Text style={styles.nextButtonText}>Continue</Text>
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.nextButton, styles.submitButtonBottom]}
+            onPress={handleSubmit}
+            disabled={submitState === 'submitting'}
+          >
+            {submitState === 'submitting' ? (
+              <>
+                <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                  <Ionicons name="sync" size={18} color="#FFFFFF" />
+                </Animated.View>
+                <Text style={styles.nextButtonText}>Sending report…</Text>
+              </>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="fire-alert" size={18} color="#FFFFFF" />
+                <Text style={styles.nextButtonText}>Submit Report</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -596,12 +893,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
 
-  // Header
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    marginBottom: 4,
   },
   headerTitle: {
     fontSize: 22,
@@ -627,7 +925,43 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
-  // Notice card
+  progressWrap: {
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  progressTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressStepText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: COLORS.mutedText,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  progressLabelText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: COLORS.primaryOrange,
+  },
+  progressTrack: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  progressSegmentActive: {
+    backgroundColor: COLORS.primaryOrange,
+  },
+
   noticeCard: {
     backgroundColor: COLORS.surfaceMuted,
     borderRadius: 18,
@@ -674,7 +1008,6 @@ const styles = StyleSheet.create({
     color: COLORS.deepIndigo,
   },
 
-  // Section card
   sectionCard: {
     backgroundColor: COLORS.card,
     borderRadius: 20,
@@ -708,7 +1041,6 @@ const styles = StyleSheet.create({
     color: COLORS.deepIndigo,
   },
 
-  // Field label
   fieldLabel: {
     fontSize: 12.5,
     fontWeight: '600',
@@ -721,7 +1053,6 @@ const styles = StyleSheet.create({
     color: COLORS.mutedText,
   },
 
-  // Text input
   textInput: {
     backgroundColor: COLORS.surfaceMuted,
     borderRadius: 14,
@@ -738,15 +1069,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
 
-  // Helper text
   helperText: {
     fontSize: 11.5,
     color: COLORS.mutedText,
     lineHeight: 16,
     marginTop: 4,
+    flex: 1,
   },
 
-  // Upload area
   uploadArea: {
     marginBottom: 14,
   },
@@ -780,40 +1110,45 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  uploadPreviewText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.deepIndigo,
+  photoPreviewImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
-  uploadRemoveText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.criticalRed,
-    marginTop: 4,
+  uploadRemoveBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
   },
   uploadButtonFull: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: COLORS.surfaceMuted,
     borderRadius: 14,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     marginBottom: 10,
   },
-  uploadButtonSecondaryText: {
+  uploadButtonPrimary: {
+    backgroundColor: COLORS.primaryOrange,
+  },
+  uploadButtonPrimaryText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: COLORS.deepIndigo,
+    color: '#FFFFFF',
+  },
+  integrityNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+    marginTop: 4,
   },
 
-  // Location
   locationLoadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -824,6 +1159,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.slateText,
     fontStyle: 'italic',
+    flex: 1,
   },
   locationSummaryRow: {
     flexDirection: 'row',
@@ -845,7 +1181,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   miniMapGrid: {
@@ -866,25 +1202,39 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: COLORS.card,
   },
-  locationUpdateButton: {
+  gpsChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  gpsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     backgroundColor: COLORS.surfaceMuted,
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
   },
-  locationUpdateButtonText: {
-    fontSize: 12.5,
-    fontWeight: '700',
+  gpsChipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
     color: COLORS.deepIndigo,
   },
+  refreshIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
 
-  // Severity
   severityRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -910,7 +1260,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Incident type
   typeChipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -938,7 +1287,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Toggle questions
   toggleQuestionSpacer: {
     marginTop: 18,
   },
@@ -980,7 +1328,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Summary card
   summaryCard: {
     backgroundColor: COLORS.deepIndigo,
     borderRadius: 20,
@@ -1009,6 +1356,8 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: '#FFFFFF',
+    maxWidth: '60%',
+    textAlign: 'right',
   },
   summarySeverityBadge: {
     paddingHorizontal: 10,
@@ -1018,6 +1367,21 @@ const styles = StyleSheet.create({
   summarySeverityText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  summaryEmergencyNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 14,
+  },
+  summaryEmergencyText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    flex: 1,
+    lineHeight: 15,
   },
   summaryReadyRow: {
     flexDirection: 'row',
@@ -1031,8 +1395,146 @@ const styles = StyleSheet.create({
     color: COLORS.successGreen,
   },
 
-  // Submit
+  bottomBar: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  backButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  nextButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primaryOrange,
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: COLORS.primaryOrange,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  submitButtonBottom: {
+    backgroundColor: COLORS.primaryOrange,
+  },
+  nextButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  successContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    alignItems: 'center',
+  },
+  successIconCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: COLORS.successGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.deepIndigo,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successSubtitle: {
+    fontSize: 13,
+    color: COLORS.slateText,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 24,
+    paddingHorizontal: 12,
+  },
+  refCard: {
+    width: '100%',
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  refCardLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: COLORS.mutedText,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  refCardValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.primaryOrange,
+    letterSpacing: 0.5,
+  },
+  refCardDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 14,
+  },
+  refStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  refStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.warningAmber,
+  },
+  refStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.deepIndigo,
+  },
+  successSummaryBox: {
+    width: '100%',
+    backgroundColor: COLORS.deepIndigo,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+  },
+  summaryLabelDark: {
+    fontSize: 12.5,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  summaryValueDark: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
   submitButton: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1051,16 +1553,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  clearButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  clearButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.slateText,
   },
   submitHelperText: {
     fontSize: 11.5,
