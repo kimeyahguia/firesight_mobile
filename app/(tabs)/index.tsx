@@ -22,6 +22,22 @@ import StatusBadge from '@/components/common/StatusBadge';
 import ActionCard from '@/components/common/ActionCard';
 import PrimaryButton from '@/components/common/PrimaryButton';
 
+import { useEffect } from "react";
+import { API_ENDPOINTS } from "@/constants/api";
+
+useEffect(() => {
+  const testConnection = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.incidentsRead);
+      const result = await response.json();
+      console.log("Connected! Data:", result);
+    } catch (error) {
+      console.error("Connection error:", error);
+    }
+  };
+  testConnection();
+}, []);
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HALF_SHEET = SCREEN_HEIGHT * 0.55;
 

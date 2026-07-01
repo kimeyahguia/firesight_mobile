@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, FONT_SIZES } from '@/constants/theme';
+import { API_ENDPOINTS } from '@/constants/api';
 
 import FormInput from '@/components/common/FormInput';
 import PrimaryButton from '@/components/common/PrimaryButton';
@@ -23,14 +23,7 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [signupVisible, setSignupVisible] = useState(false);
-  const [signupName, setSignupName] = useState('');
-  const [signupPhone, setSignupPhone] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupError, setSignupError] = useState('');
-  const [signupLoading, setSignupLoading] = useState(false);
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
 
     if (!phone || !password) {
@@ -40,37 +33,30 @@ export default function LoginScreen() {
 
     setLoading(true);
 
-    // TODO: replace with real auth call
-    setTimeout(() => {
+    try {
+      const response = await fetch(API_ENDPOINTS.login, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        setError(result.message || 'Login failed.');
+        setLoading(false);
+        return;
+      }
+
+      await AsyncStorage.setItem('user_id', String(result.user.id));
+      await AsyncStorage.setItem('user_data', JSON.stringify(result.user));
+
       setLoading(false);
       router.replace('/(tabs)');
-    }, 800);
-  };
-
-  const closeSignup = () => {
-    setSignupVisible(false);
-    setSignupName('');
-    setSignupPhone('');
-    setSignupPassword('');
-    setSignupError('');
-  };
-
-  const handleSignup = () => {
-    setSignupError('');
-
-    if (!signupName || !signupPhone || !signupPassword) {
-      setSignupError('Please fill in all fields.');
-      return;
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Connection error. Please try again.');
+      setLoading(false);
     }
-
-    setSignupLoading(true);
-
-    // TODO: replace with real account-creation call
-    setTimeout(() => {
-      setSignupLoading(false);
-      closeSignup();
-      router.replace('/(tabs)');
-    }, 800);
   };
 
   return (
@@ -142,99 +128,27 @@ export default function LoginScreen() {
           {/* Footer */}
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-            <TouchableOpacity activeOpacity={0.6} onPress={() => setSignupVisible(true)}>
+            <TouchableOpacity activeOpacity={0.6} onPress={() => router.push('/sign_in')}>
               <Text style={styles.footerLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
-
-      {/* Sign Up Modal */}
-      <Modal
-        visible={signupVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={closeSignup}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={closeSignup} />
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalSheetWrap}
-          >
-            <View style={styles.modalSheet}>
-              <View style={styles.modalHandle} />
-
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Create Account</Text>
-                <TouchableOpacity activeOpacity={0.7} onPress={closeSignup} hitSlop={8}>
-                  <Ionicons name="close" size={22} color={COLORS.slateText} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.modalSubtitle}>
-                Sign up to report incidents and receive alerts for your barangay.
-              </Text>
-
-              <FormInput
-                label="Full Name"
-                icon="person-outline"
-                placeholder="Juan Dela Cruz"
-                value={signupName}
-                onChangeText={setSignupName}
-              />
-              <FormInput
-                label="Phone Number"
-                icon="call-outline"
-                placeholder="0917 123 4567"
-                keyboardType="phone-pad"
-                value={signupPhone}
-                onChangeText={setSignupPhone}
-              />
-              <FormInput
-                label="Password"
-                icon="lock-closed-outline"
-                placeholder="Create a password"
-                isPassword
-                value={signupPassword}
-                onChangeText={setSignupPassword}
-                error={signupError}
-              />
-
-              <PrimaryButton
-                label="Create Account"
-                variant="primary"
-                fullWidth
-                loading={signupLoading}
-                onPress={handleSignup}
-                style={styles.modalSubmitButton}
-              />
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-
   title: {
-    fontSize: FONT_SIZES.screenTitle, // = 28
+    fontSize: FONT_SIZES.screenTitle,
     color: COLORS.deepIndigo,
   },
   body: {
-    fontSize: FONT_SIZES.body, // = 16
+    fontSize: FONT_SIZES.body,
     color: COLORS.slateText,
   },
-  
-  gradientFill: {
-    flex: 1,
-  },
-  flexFill: {
-    flex: 1,
-  },
+  gradientFill: { flex: 1 },
+  flexFill: { flex: 1 },
   content: {
     flex: 1,
     paddingHorizontal: 24,
@@ -272,9 +186,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
   },
-  appNameAccent: {
-    color: COLORS.primaryOrange,
-  },
+  appNameAccent: { color: COLORS.primaryOrange },
   tagline: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.7)',
@@ -282,9 +194,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: 12,
   },
-  form: {
-    marginBottom: 24,
-  },
+  form: { marginBottom: 24 },
   forgotWrap: {
     alignSelf: 'flex-end',
     marginBottom: 24,
@@ -295,9 +205,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primaryOrange,
   },
-  loginButton: {
-    marginTop: 4,
-  },
+  loginButton: { marginTop: 4 },
   browseButton: {
     marginTop: 12,
     paddingVertical: 12,
@@ -324,56 +232,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.primaryOrange,
-  },
-
-  // Sign Up Modal (stays light/white — modals over dark gradients
-  // usually look better as a white sheet, contacts/forms inside
-  // already use COLORS.card/border which are white/light by default)
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(17,24,39,0.5)',
-  },
-  modalSheetWrap: {
-    width: '100%',
-  },
-  modalSheet: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 32,
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.border,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  modalTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: COLORS.deepIndigo,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: COLORS.slateText,
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  modalSubmitButton: {
-    marginTop: 8,
   },
 });

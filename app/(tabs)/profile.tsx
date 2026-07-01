@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -9,11 +9,14 @@ import {
   StatusBar,
   SafeAreaView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, FONT_SIZES } from '@/constants/theme';
+import { API_ENDPOINTS } from '@/constants/api';
 import AppHeader from '@/components/common/AppHeader';
 
 // ────────────────────────────────────────────────────────────
@@ -25,8 +28,37 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 interface ReadinessItem {
   id: string;
   label: string;
-  done: boolean;
+  done: number; // 0 or 1 from MySQL
   icon: IoniconName;
+}
+
+interface TrustedContact {
+  id: string;
+  name: string;
+  relation: string;
+  phone: string;
+}
+
+interface ProfileUser {
+  id: number;
+  full_name: string;
+  email: string;
+  avatar_url: string | null;
+  barangay: string;
+  is_verified: number;
+}
+
+interface ProfileStats {
+  reports: number;
+  alertsViewed: number;
+  guidesRead: number;
+}
+
+interface ProfileData {
+  user: ProfileUser;
+  readiness: ReadinessItem[];
+  contacts: TrustedContact[];
+  stats: ProfileStats;
 }
 
 interface ActivityStat {
@@ -36,13 +68,6 @@ interface ActivityStat {
   icon: IoniconName;
   iconBg: string;
   iconColor: string;
-}
-
-interface TrustedContact {
-  id: string;
-  name: string;
-  relation: string;
-  phone: string;
 }
 
 interface PreferenceItem {
@@ -55,48 +80,8 @@ interface PreferenceItem {
 }
 
 // ────────────────────────────────────────────────────────────
-// Mock Data
+// Static preference list (no DB needed — just navigation items)
 // ────────────────────────────────────────────────────────────
-
-const READINESS_ITEMS: ReadinessItem[] = [
-  { id: '1', label: 'Emergency contacts saved', done: true, icon: 'people-outline' },
-  { id: '2', label: 'Evacuation plan reviewed', done: true, icon: 'map-outline' },
-  { id: '3', label: 'Push alerts enabled', done: true, icon: 'notifications-outline' },
-  { id: '4', label: 'Location sharing enabled', done: false, icon: 'location-outline' },
-  { id: '5', label: 'Fire safety guide completed', done: false, icon: 'book-outline' },
-];
-
-const ACTIVITY_STATS: ActivityStat[] = [
-  {
-    id: '1',
-    label: 'Reports Submitted',
-    value: '3',
-    icon: 'flame-outline',
-    iconBg: '#FFF1E6',
-    iconColor: COLORS.primaryOrange,
-  },
-  {
-    id: '2',
-    label: 'Alerts Viewed',
-    value: '12',
-    icon: 'notifications-outline',
-    iconBg: 'rgba(109,91,208,0.1)',
-    iconColor: COLORS.accentViolet,
-  },
-  {
-    id: '3',
-    label: 'Guides Read',
-    value: '5',
-    icon: 'book-outline',
-    iconBg: '#ECFDF5',
-    iconColor: COLORS.successGreen,
-  },
-];
-
-const TRUSTED_CONTACTS: TrustedContact[] = [
-  { id: '1', name: 'Maria Santos', relation: 'Spouse', phone: '0917 123 4567' },
-  { id: '2', name: 'Jun Reyes', relation: 'Neighbor', phone: '0918 765 4321' },
-];
 
 const PREFERENCE_ITEMS: PreferenceItem[] = [
   {
@@ -156,18 +141,19 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: 
 }
 
 function ReadinessRow({ item }: { item: ReadinessItem }) {
+  const isDone = item.done === 1;
   return (
     <View style={styles.readinessRow}>
-      <View style={[styles.readinessIconWrap, { backgroundColor: item.done ? '#ECFDF5' : COLORS.surfaceMuted }]}>
-        <Ionicons name={item.icon} size={15} color={item.done ? COLORS.successGreen : COLORS.mutedText} />
+      <View style={[styles.readinessIconWrap, { backgroundColor: isDone ? '#ECFDF5' : COLORS.surfaceMuted }]}>
+        <Ionicons name={item.icon} size={15} color={isDone ? COLORS.successGreen : COLORS.mutedText} />
       </View>
-      <Text style={[styles.readinessLabel, !item.done && styles.readinessLabelMuted]}>
+      <Text style={[styles.readinessLabel, !isDone && styles.readinessLabelMuted]}>
         {item.label}
       </Text>
       <Ionicons
-        name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+        name={isDone ? 'checkmark-circle' : 'ellipse-outline'}
         size={18}
-        color={item.done ? COLORS.successGreen : COLORS.mutedText}
+        color={isDone ? COLORS.successGreen : COLORS.mutedText}
       />
     </View>
   );
@@ -225,10 +211,47 @@ function PreferenceRow({ item }: { item: PreferenceItem }) {
 
 export default function ProfileScreen() {
   const [profileUri, setProfileUri] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
 
-  const readinessDone = READINESS_ITEMS.filter((i) => i.done).length;
-  const readinessTotal = READINESS_ITEMS.length;
-  const readinessPct = Math.round((readinessDone / readinessTotal) * 100);
+  // Load logged-in user_id from AsyncStorage on mount
+  useEffect(() => {
+    const loadUserAndProfile = async () => {
+      const storedId = await AsyncStorage.getItem('user_id');
+      if (storedId) {
+        setUserId(Number(storedId));
+      } else {
+        // walang naka-login, balik sa login screen
+        router.replace('/login');
+      }
+    };
+    loadUserAndProfile();
+  }, []);
+
+  // Fetch profile once userId is available
+  useEffect(() => {
+    if (userId !== null) {
+      fetchProfile();
+    }
+  }, [userId]);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`${API_ENDPOINTS.profileRead}?user_id=${userId}`);
+      if (!response.ok) throw new Error('Server error');
+      const data: ProfileData = await response.json();
+      setProfileData(data);
+    } catch (err) {
+      console.error('Failed to fetch profile:', err);
+      setError('Failed to load profile. Check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   async function handlePickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -243,8 +266,76 @@ export default function ProfileScreen() {
 
     if (!result.canceled && result.assets.length > 0) {
       setProfileUri(result.assets[0].uri);
+      // TODO: upload to server via profile/update.php + move image to server storage
     }
   }
+
+  // ── Loading state ──
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={COLORS.primaryOrange} />
+          <Text style={styles.centerStateText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Error / empty state ──
+  if (error || !profileData) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centerState}>
+          <Ionicons name="cloud-offline-outline" size={40} color={COLORS.mutedText} />
+          <Text style={styles.centerStateText}>{error ?? 'No profile data found.'}</Text>
+          <TouchableOpacity activeOpacity={0.8} style={styles.retryButton} onPress={fetchProfile}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { user, readiness, contacts, stats } = profileData;
+
+  const readinessDone = readiness.filter((i) => i.done === 1).length;
+  const readinessTotal = readiness.length || 1;
+  const readinessPct = Math.round((readinessDone / readinessTotal) * 100);
+
+  const initials = user.full_name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const ACTIVITY_STATS: ActivityStat[] = [
+    {
+      id: '1',
+      label: 'Reports Submitted',
+      value: String(stats.reports),
+      icon: 'flame-outline',
+      iconBg: '#FFF1E6',
+      iconColor: COLORS.primaryOrange,
+    },
+    {
+      id: '2',
+      label: 'Alerts Viewed',
+      value: String(stats.alertsViewed),
+      icon: 'notifications-outline',
+      iconBg: 'rgba(109,91,208,0.1)',
+      iconColor: COLORS.accentViolet,
+    },
+    {
+      id: '3',
+      label: 'Guides Read',
+      value: String(stats.guidesRead),
+      icon: 'book-outline',
+      iconBg: '#ECFDF5',
+      iconColor: COLORS.successGreen,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -275,9 +366,11 @@ export default function ProfileScreen() {
               >
                 {profileUri ? (
                   <Image source={{ uri: profileUri }} style={styles.avatarImage} />
+                ) : user.avatar_url ? (
+                  <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarText}>JD</Text>
+                    <Text style={styles.avatarText}>{initials}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -291,16 +384,18 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.heroMeta}>
-              <Text style={styles.heroName}>Juan dela Cruz</Text>
-              <Text style={styles.heroSub}>juan.delacruz@email.com</Text>
+              <Text style={styles.heroName}>{user.full_name}</Text>
+              <Text style={styles.heroSub}>{user.email}</Text>
               <View style={styles.heroBadgeRow}>
-                <View style={styles.heroBadge}>
-                  <Ionicons name="shield-checkmark" size={11} color="#FED7AA" />
-                  <Text style={styles.heroBadgeText}>Verified Resident</Text>
-                </View>
+                {user.is_verified === 1 && (
+                  <View style={styles.heroBadge}>
+                    <Ionicons name="shield-checkmark" size={11} color="#FED7AA" />
+                    <Text style={styles.heroBadgeText}>Verified Resident</Text>
+                  </View>
+                )}
                 <View style={styles.heroLocationPill}>
                   <Ionicons name="location-outline" size={11} color="rgba(255,255,255,0.6)" />
-                  <Text style={styles.heroLocationText}>Lian Proper, Batangas</Text>
+                  <Text style={styles.heroLocationText}>{user.barangay}</Text>
                 </View>
               </View>
             </View>
@@ -309,12 +404,12 @@ export default function ProfileScreen() {
           {/* Mini stats */}
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>3</Text>
+              <Text style={styles.heroStatValue}>{stats.reports}</Text>
               <Text style={styles.heroStatLabel}>Reports</Text>
             </View>
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>12</Text>
+              <Text style={styles.heroStatValue}>{stats.alertsViewed}</Text>
               <Text style={styles.heroStatLabel}>Alerts Read</Text>
             </View>
             <View style={styles.heroStatDivider} />
@@ -329,17 +424,17 @@ export default function ProfileScreen() {
         <SectionHeader
           eyebrow="Status"
           title="Safety Readiness"
-          subtitle={`${readinessDone} of ${readinessTotal} items completed`}
+          subtitle={`${readinessDone} of ${readiness.length} items completed`}
         />
         <View style={styles.card}>
           <View style={styles.readinessBarBg}>
             <View style={[styles.readinessBarFill, { width: `${readinessPct}%` as `${number}%` }]} />
           </View>
           <View style={styles.readinessList}>
-            {READINESS_ITEMS.map((item, index) => (
+            {readiness.map((item, index) => (
               <View key={item.id}>
                 <ReadinessRow item={item} />
-                {index < READINESS_ITEMS.length - 1 && <View style={styles.rowDivider} />}
+                {index < readiness.length - 1 && <View style={styles.rowDivider} />}
               </View>
             ))}
           </View>
@@ -356,12 +451,16 @@ export default function ProfileScreen() {
         {/* Trusted Contacts */}
         <SectionHeader eyebrow="Safety Network" title="Trusted Emergency Contacts" />
         <View style={styles.card}>
-          {TRUSTED_CONTACTS.map((contact, index) => (
-            <View key={contact.id}>
-              <TrustedContactRow contact={contact} />
-              {index < TRUSTED_CONTACTS.length - 1 && <View style={styles.rowDivider} />}
-            </View>
-          ))}
+          {contacts.length === 0 ? (
+            <Text style={styles.emptyContactsText}>No trusted contacts added yet.</Text>
+          ) : (
+            contacts.map((contact, index) => (
+              <View key={contact.id}>
+                <TrustedContactRow contact={contact} />
+                {index < contacts.length - 1 && <View style={styles.rowDivider} />}
+              </View>
+            ))
+          )}
           <TouchableOpacity activeOpacity={0.8} style={styles.addContactButton}>
             <Ionicons name="add-circle-outline" size={16} color={COLORS.primaryOrange} />
             <Text style={styles.addContactText}>Add Emergency Contact</Text>
@@ -401,7 +500,7 @@ export default function ProfileScreen() {
             <Text style={styles.resourcesEyebrow}>Keep Learning</Text>
             <Text style={styles.resourcesTitle}>Continue Learning</Text>
             <Text style={styles.resourcesSubtitle}>
-              You've read 5 guides. Review home fire prevention basics next.
+              You've read {stats.guidesRead} guides. Review home fire prevention basics next.
             </Text>
           </View>
           <TouchableOpacity activeOpacity={0.85} style={styles.resourcesButton}>
@@ -411,7 +510,15 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout */}
-        <TouchableOpacity activeOpacity={0.8} style={styles.logoutButton}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.logoutButton}
+          onPress={async () => {
+            await AsyncStorage.removeItem('user_id');
+            await AsyncStorage.removeItem('user_data');
+            router.replace('/login');
+          }}
+        >
           <Ionicons name="log-out-outline" size={18} color={COLORS.criticalRed} />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
@@ -437,6 +544,38 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+
+  // Loading / error state
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  centerStateText: {
+    fontSize: FONT_SIZES.secondary,
+    color: COLORS.slateText,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.primaryOrange,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: FONT_SIZES.secondary,
+  },
+  emptyContactsText: {
+    fontSize: FONT_SIZES.caption,
+    color: COLORS.mutedText,
+    paddingVertical: 16,
+    textAlign: 'center',
   },
 
   // Hero Card
