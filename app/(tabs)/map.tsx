@@ -1,24 +1,25 @@
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  SafeAreaView,
-} from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '@/components/common/AppHeader';
 import {
+  ALERT_COLORS,
+  AlertType,
   COLORS,
   RISK_COLORS,
-  ALERT_COLORS,
   RiskLevel,
-  AlertType,
 } from '@/constants/theme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { WebView } from 'react-native-webview';
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -131,7 +132,8 @@ const FILTERS: FilterOption[] = ['All', 'Low Risk', 'Moderate Risk', 'High Risk'
 const RISK_DOT: Record<RiskLevel, string> = {
   Low: '#16A34A',
   Moderate: '#F59E0B',
-  High: '#DC2626'
+  High: '#DC2626',
+  Critical: '#991B1B',
 };
 
 // ────────────────────────────────────────────────────────────
@@ -285,7 +287,6 @@ export default function MapScreen() {
 
   const handleSelectBarangay = (id: string) => {
     setSelectedId(id);
-    // Pan map to selected barangay
     const b = BARANGAYS.find((x) => x.id === id);
     if (b && webViewRef.current) {
       webViewRef.current.injectJavaScript(`
@@ -305,6 +306,17 @@ export default function MapScreen() {
     } catch (_) {}
   };
 
+  const handleIncidentHistory = () => {
+    Alert.alert(
+      `${selected.name} — Incident History`,
+      `${selected.incidents} ${selected.incidents === 1 ? 'incident' : 'incidents'} recorded. Last update: ${selected.lastUpdate}.\n\nFull incident history log coming soon.`
+    );
+  };
+
+  const handleBellPress = () => {
+    Alert.alert('Notifications', 'You have no new notifications.');
+  };
+
   const highRiskCount = BARANGAYS.filter((b) => b.risk === 'High').length;
   const moderateRiskCount = BARANGAYS.filter((b) => b.risk === 'Moderate').length;
 
@@ -322,6 +334,7 @@ export default function MapScreen() {
           subtitle="Lian, Batangas"
           showLocation
           showBell
+          onBellPress={handleBellPress}
           showBrand
         />
 
@@ -418,7 +431,7 @@ export default function MapScreen() {
             </View>
           </View>
           <View style={styles.detailActionsRow}>
-            <TouchableOpacity activeOpacity={0.85} style={styles.detailSecondaryButton}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.detailSecondaryButton} onPress={handleIncidentHistory}>
               <Ionicons name="time-outline" size={15} color={COLORS.deepIndigo} />
               <Text style={styles.detailSecondaryButtonText}>Incident History</Text>
             </TouchableOpacity>
