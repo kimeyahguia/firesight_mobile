@@ -1,23 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  SafeAreaView,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS, FONT_SIZES } from '@/constants/theme';
-import { API_ENDPOINTS } from '@/constants/api';
 import AppHeader from '@/components/common/AppHeader';
+import { API_ENDPOINTS } from '@/constants/api';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -140,22 +146,26 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: 
   );
 }
 
-function ReadinessRow({ item }: { item: ReadinessItem }) {
+function ReadinessRow({ item, onToggle, toggling }: { item: ReadinessItem; onToggle: () => void; toggling: boolean }) {
   const isDone = item.done === 1;
   return (
-    <View style={styles.readinessRow}>
+    <TouchableOpacity activeOpacity={0.7} style={styles.readinessRow} onPress={onToggle} disabled={toggling}>
       <View style={[styles.readinessIconWrap, { backgroundColor: isDone ? '#ECFDF5' : COLORS.surfaceMuted }]}>
         <Ionicons name={item.icon} size={15} color={isDone ? COLORS.successGreen : COLORS.mutedText} />
       </View>
       <Text style={[styles.readinessLabel, !isDone && styles.readinessLabelMuted]}>
         {item.label}
       </Text>
-      <Ionicons
-        name={isDone ? 'checkmark-circle' : 'ellipse-outline'}
-        size={18}
-        color={isDone ? COLORS.successGreen : COLORS.mutedText}
-      />
-    </View>
+      {toggling ? (
+        <ActivityIndicator size="small" color={COLORS.mutedText} />
+      ) : (
+        <Ionicons
+          name={isDone ? 'checkmark-circle' : 'ellipse-outline'}
+          size={18}
+          color={isDone ? COLORS.successGreen : COLORS.mutedText}
+        />
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -171,7 +181,15 @@ function ActivityStatCard({ stat }: { stat: ActivityStat }) {
   );
 }
 
-function TrustedContactRow({ contact }: { contact: TrustedContact }) {
+function TrustedContactRow({ contact, onDelete }: { contact: TrustedContact; onDelete: () => void }) {
+  const handleCall = () => {
+    const cleaned = contact.phone.replace(/[^0-9+]/g, '');
+    if (!cleaned) return;
+    Linking.openURL(`tel:${cleaned}`).catch(() =>
+      Alert.alert('Error', 'Unable to open the dialer on this device.')
+    );
+  };
+
   return (
     <View style={styles.contactRow}>
       <View style={styles.contactAvatar}>
@@ -183,8 +201,11 @@ function TrustedContactRow({ contact }: { contact: TrustedContact }) {
         <Text style={styles.contactName}>{contact.name}</Text>
         <Text style={styles.contactMeta}>{contact.relation} · {contact.phone}</Text>
       </View>
-      <TouchableOpacity activeOpacity={0.7} style={styles.contactCallButton}>
+      <TouchableOpacity activeOpacity={0.7} style={styles.contactCallButton} onPress={handleCall}>
         <Ionicons name="call-outline" size={16} color={COLORS.primaryOrange} />
+      </TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.7} style={styles.contactDeleteButton} onPress={onDelete}>
+        <Ionicons name="trash-outline" size={16} color={COLORS.criticalRed} />
       </TouchableOpacity>
     </View>
   );
@@ -205,16 +226,113 @@ function PreferenceRow({ item }: { item: PreferenceItem }) {
   );
 }
 
+// Add-contact modal
+function AddContactModal({
+  visible,
+  onClose,
+  onSubmit,
+  submitting,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, relation: string, phone: string) => void;
+  submitting: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [relation, setRelation] = useState('');
+  const [phone, setPhone] = useState('');
+
+  const handleSubmit = () => {
+    if (!name.trim() || !relation.trim() || !phone.trim()) {
+      Alert.alert('Missing info', 'Please fill in all fields.');
+      return;
+    }
+    onSubmit(name.trim(), relation.trim(), phone.trim());
+  };
+
+  const handleClose = () => {
+    setName('');
+    setRelation('');
+    setPhone('');
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeaderRow}>
+            <Text style={styles.modalTitle}>Add Trusted Contact</Text>
+            <TouchableOpacity onPress={handleClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={COLORS.mutedText} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.modalLabel}>Full Name</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="e.g. Juan Dela Cruz"
+            placeholderTextColor={COLORS.mutedText}
+            value={name}
+            onChangeText={setName}
+          />
+
+          <Text style={styles.modalLabel}>Relation</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="e.g. Father, Neighbor, Barangay Captain"
+            placeholderTextColor={COLORS.mutedText}
+            value={relation}
+            onChangeText={setRelation}
+          />
+
+          <Text style={styles.modalLabel}>Phone Number</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="e.g. 09171234567"
+            placeholderTextColor={COLORS.mutedText}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.modalSubmitBtn, submitting && { opacity: 0.7 }]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                <Text style={styles.modalSubmitBtnText}>Save Contact</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 // Main Screen
 // ────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const [profileUri, setProfileUri] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
+  const [addContactVisible, setAddContactVisible] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
 
   // Load logged-in user_id from AsyncStorage on mount
   useEffect(() => {
@@ -230,32 +348,39 @@ export default function ProfileScreen() {
     loadUserAndProfile();
   }, []);
 
-  // Fetch profile once userId is available
-  useEffect(() => {
-    if (userId !== null) {
-      fetchProfile();
-    }
-  }, [userId]);
+const fetchProfile = useCallback(async () => {
+  if (userId === null) return;
+  try {
+    setLoading(true);
+    setError(null);
+    const response = await fetch(`${API_ENDPOINTS.profileRead}?user_id=${userId}`);
+    const text = await response.text();
+    console.log('Status:', response.status);
+    console.log('Response body:', text);
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`${API_ENDPOINTS.profileRead}?user_id=${userId}`);
-      if (!response.ok) throw new Error('Server error');
-      const data: ProfileData = await response.json();
-      setProfileData(data);
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
-      setError('Failed to load profile. Check your connection.');
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error(`Server error (${response.status}): ${text}`);
     }
-  };
 
+    const data: ProfileData = JSON.parse(text);
+    setProfileData(data);
+  } catch (err) {
+    console.error('Failed to fetch profile:', err);
+    setError('Failed to load profile. Check your connection.');
+  } finally {
+    setLoading(false);
+  }
+}, [userId]);
+
+  // ── Avatar picker + real upload ──
   async function handlePickImage() {
+    if (!userId) return;
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo library access to change your profile picture.');
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -264,10 +389,171 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets.length > 0) {
-      setProfileUri(result.assets[0].uri);
-      // TODO: upload to server via profile/update.php + move image to server storage
+    if (result.canceled || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+
+    // Optimistic local preview while uploading
+    setProfileData((prev) =>
+      prev ? { ...prev, user: { ...prev.user, avatar_url: asset.uri } } : prev
+    );
+
+    try {
+      setUploadingAvatar(true);
+
+      const filename = asset.uri.split('/').pop() ?? `avatar_${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1] : 'jpg';
+
+      const formData = new FormData();
+      formData.append('user_id', String(userId));
+      formData.append('avatar', {
+        uri: asset.uri,
+        name: filename,
+        type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+      } as any);
+
+      const response = await fetch(API_ENDPOINTS.profileUpdate, {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error ?? 'Upload failed');
+      }
+
+      // Replace optimistic local uri with the real server URL
+      setProfileData((prev) =>
+        prev ? { ...prev, user: { ...prev.user, avatar_url: result.avatar_url } } : prev
+      );
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+      Alert.alert('Upload failed', 'Could not update your profile photo. Please try again.');
+      // Revert optimistic preview on failure
+      fetchProfile();
+    } finally {
+      setUploadingAvatar(false);
     }
+  }
+
+  // ── Readiness toggle ──
+  async function handleToggleReadiness(item: ReadinessItem) {
+    if (!userId || togglingItemId) return;
+
+    setTogglingItemId(item.id);
+
+    // Optimistic update
+    setProfileData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        readiness: prev.readiness.map((r) =>
+          r.id === item.id ? { ...r, done: r.done === 1 ? 0 : 1 } : r
+        ),
+      };
+    });
+
+    try {
+      const response = await fetch(API_ENDPOINTS.readinessToggle, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          readiness_item_id: Number(item.id),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error('Toggle failed');
+
+      // Sync with actual server value (in case of race conditions)
+      setProfileData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          readiness: prev.readiness.map((r) =>
+            r.id === item.id ? { ...r, done: result.done } : r
+          ),
+        };
+      });
+    } catch (err) {
+      console.error('Readiness toggle failed:', err);
+      Alert.alert('Error', 'Could not update this item. Please try again.');
+      // Revert on failure
+      fetchProfile();
+    } finally {
+      setTogglingItemId(null);
+    }
+  }
+
+  // ── Add trusted contact ──
+  async function handleAddContact(name: string, relation: string, phone: string) {
+    if (!userId) return;
+
+    try {
+      setAddingContact(true);
+      const response = await fetch(API_ENDPOINTS.contactAdd, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, name, relation, phone }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) throw new Error(result.error ?? 'Failed to add contact');
+
+      setProfileData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          contacts: [...prev.contacts, { id: String(result.id), name, relation, phone }],
+        };
+      });
+
+      setAddContactVisible(false);
+    } catch (err) {
+      console.error('Add contact failed:', err);
+      Alert.alert('Error', 'Could not add this contact. Please try again.');
+    } finally {
+      setAddingContact(false);
+    }
+  }
+
+  // ── Delete trusted contact ──
+  async function handleDeleteContact(contactId: string) {
+    if (!userId) return;
+
+    Alert.alert('Remove Contact', 'Are you sure you want to remove this contact?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const previousContacts = profileData?.contacts ?? [];
+
+          // Optimistic removal
+          setProfileData((prev) =>
+            prev ? { ...prev, contacts: prev.contacts.filter((c) => c.id !== contactId) } : prev
+          );
+
+          try {
+            const response = await fetch(API_ENDPOINTS.contactDelete, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId, contact_id: Number(contactId) }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error('Delete failed');
+          } catch (err) {
+            console.error('Delete contact failed:', err);
+            Alert.alert('Error', 'Could not remove this contact.');
+            // Revert on failure
+            setProfileData((prev) => (prev ? { ...prev, contacts: previousContacts } : prev));
+          }
+        },
+      },
+    ]);
   }
 
   // ── Loading state ──
@@ -363,14 +649,18 @@ export default function ProfileScreen() {
                 activeOpacity={0.85}
                 onPress={handlePickImage}
                 style={styles.avatarTouchable}
+                disabled={uploadingAvatar}
               >
-                {profileUri ? (
-                  <Image source={{ uri: profileUri }} style={styles.avatarImage} />
-                ) : user.avatar_url ? (
+                {user.avatar_url ? (
                   <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatarFallback}>
                     <Text style={styles.avatarText}>{initials}</Text>
+                  </View>
+                )}
+                {uploadingAvatar && (
+                  <View style={styles.avatarUploadingOverlay}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -378,6 +668,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.85}
                 onPress={handlePickImage}
                 style={styles.cameraButton}
+                disabled={uploadingAvatar}
               >
                 <Ionicons name="camera" size={12} color="#FFFFFF" />
               </TouchableOpacity>
@@ -433,7 +724,11 @@ export default function ProfileScreen() {
           <View style={styles.readinessList}>
             {readiness.map((item, index) => (
               <View key={item.id}>
-                <ReadinessRow item={item} />
+                <ReadinessRow
+                  item={item}
+                  onToggle={() => handleToggleReadiness(item)}
+                  toggling={togglingItemId === item.id}
+                />
                 {index < readiness.length - 1 && <View style={styles.rowDivider} />}
               </View>
             ))}
@@ -456,12 +751,16 @@ export default function ProfileScreen() {
           ) : (
             contacts.map((contact, index) => (
               <View key={contact.id}>
-                <TrustedContactRow contact={contact} />
+                <TrustedContactRow contact={contact} onDelete={() => handleDeleteContact(contact.id)} />
                 {index < contacts.length - 1 && <View style={styles.rowDivider} />}
               </View>
             ))
           )}
-          <TouchableOpacity activeOpacity={0.8} style={styles.addContactButton}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.addContactButton}
+            onPress={() => setAddContactVisible(true)}
+          >
             <Ionicons name="add-circle-outline" size={16} color={COLORS.primaryOrange} />
             <Text style={styles.addContactText}>Add Emergency Contact</Text>
           </TouchableOpacity>
@@ -478,7 +777,11 @@ export default function ProfileScreen() {
               <Text style={styles.hotlineNumber}>(043) 740 1234</Text>
             </View>
           </View>
-          <TouchableOpacity activeOpacity={0.8} style={styles.hotlineCallButton}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.hotlineCallButton}
+            onPress={() => Linking.openURL('tel:(043)7401234')}
+          >
             <Ionicons name="call" size={16} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -503,7 +806,11 @@ export default function ProfileScreen() {
               You've read {stats.guidesRead} guides. Review home fire prevention basics next.
             </Text>
           </View>
-          <TouchableOpacity activeOpacity={0.85} style={styles.resourcesButton}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.resourcesButton}
+            onPress={() => router.push('/(tabs)/awareness' as any)}
+          >
             <Ionicons name="book" size={15} color={COLORS.deepIndigo} />
             <Text style={styles.resourcesButtonText}>Open</Text>
           </TouchableOpacity>
@@ -527,6 +834,13 @@ export default function ProfileScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      <AddContactModal
+        visible={addContactVisible}
+        onClose={() => setAddContactVisible(false)}
+        onSubmit={handleAddContact}
+        submitting={addingContact}
+      />
     </SafeAreaView>
   );
 }
@@ -627,6 +941,13 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.appBar,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  avatarUploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   cameraButton: {
     position: 'absolute',
@@ -839,7 +1160,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 13,
-    gap: 12,
+    gap: 10,
   },
   contactAvatar: {
     width: 38,
@@ -870,6 +1191,14 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 10,
     backgroundColor: COLORS.contactIconBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactDeleteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1033,5 +1362,62 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.tiny,
     color: COLORS.mutedText,
     marginBottom: 8,
+  },
+
+  // Add Contact Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30,27,75,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 22,
+    paddingBottom: 32,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.cardTitle,
+    fontWeight: '800',
+    color: COLORS.deepIndigo,
+  },
+  modalLabel: {
+    fontSize: FONT_SIZES.caption,
+    fontWeight: '700',
+    color: COLORS.slateText,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalInput: {
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: FONT_SIZES.secondary,
+    color: COLORS.deepIndigo,
+  },
+  modalSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primaryOrange,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 22,
+  },
+  modalSubmitBtnText: {
+    fontSize: FONT_SIZES.secondary,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

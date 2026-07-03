@@ -1,45 +1,39 @@
-import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Modal, Pressable, Linking, Alert, Dimensions,
-} from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '@/constants/theme';
-import { RiskLevel } from '@/constants/types';
-import {
-  QUICK_ACTIONS,
+  ALERTS,
   BARANGAY_RISKS,
   EMERGENCY_CONTACTS,
-  ALERTS,
+  QUICK_ACTIONS,
   RESOURCES,
 } from '@/constants/data';
+import { COLORS } from '@/constants/theme';
+import { RiskLevel } from '@/constants/types';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Alert, Dimensions,
+  Linking,
+  Modal, Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import ScreenContainer from '@/components/common/ScreenContainer';
+import ActionCard from '@/components/common/ActionCard';
 import AppHeader from '@/components/common/AppHeader';
+import PrimaryButton from '@/components/common/PrimaryButton';
+import ScreenContainer from '@/components/common/ScreenContainer';
 import SectionHeader from '@/components/common/SectionHeader';
 import StatusBadge from '@/components/common/StatusBadge';
-import ActionCard from '@/components/common/ActionCard';
-import PrimaryButton from '@/components/common/PrimaryButton';
-
-import { useEffect } from "react";
-import { API_ENDPOINTS } from "@/constants/api";
-
-useEffect(() => {
-  const testConnection = async () => {
-    try {
-      const response = await fetch(API_ENDPOINTS.incidentsRead);
-      const result = await response.json();
-      console.log("Connected! Data:", result);
-    } catch (error) {
-      console.error("Connection error:", error);
-    }
-  };
-  testConnection();
-}, []);
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HALF_SHEET = SCREEN_HEIGHT * 0.55;
+
+// How many items to show inline before "See All" / "View All"
+const ALERTS_PREVIEW_COUNT = 2;
+const RESOURCES_PREVIEW_COUNT = 2;
 
 type Contact = (typeof EMERGENCY_CONTACTS)[number];
 type AlertItem = (typeof ALERTS)[number];
@@ -90,7 +84,7 @@ function AlertRow({ item, onPress }: { item: AlertItem; onPress: (item: AlertIte
         <Text style={styles.alertTitle}>{item.title}</Text>
         <StatusBadge variant="alert" value={item.type} />
       </View>
-      <Text style={styles.alertDescription}>{item.description}</Text>
+      <Text style={styles.alertDescription} numberOfLines={2}>{item.description}</Text>
       <Text style={styles.alertTimestamp}>{item.timestamp}</Text>
     </TouchableOpacity>
   );
@@ -103,7 +97,7 @@ function ResourceCard({ item, onPress }: { item: Resource; onPress: (item: Resou
         <Text style={styles.resourceChipText}>{item.category}</Text>
       </View>
       <Text style={styles.resourceTitle}>{item.title}</Text>
-      <Text style={styles.resourceSnippet}>{item.snippet}</Text>
+      <Text style={styles.resourceSnippet} numberOfLines={2}>{item.snippet}</Text>
       <View style={styles.resourceReadMore}>
         <Text style={styles.resourceReadMoreText}>Read more</Text>
         <Ionicons name="chevron-forward" size={13} color={COLORS.accentViolet} />
@@ -178,6 +172,9 @@ export default function HomeScreen() {
     return COLORS.successGreen;
   };
 
+  const alertsPreview = ALERTS.slice(0, ALERTS_PREVIEW_COUNT);
+  const resourcesPreview = RESOURCES.slice(0, RESOURCES_PREVIEW_COUNT);
+
   return (
     <ScreenContainer>
       <AppHeader
@@ -238,6 +235,17 @@ export default function HomeScreen() {
         ))}
       </ScrollView>
 
+      {/* Latest Alerts — preview only */}
+      <SectionHeader title="Latest Alerts" actionLabel="View All" onActionPress={() => setAllAlertsVisible(true)} />
+      <View style={styles.alertsCard}>
+        {alertsPreview.map((item, index) => (
+          <View key={item.id}>
+            <AlertRow item={item} onPress={setSelectedAlert} />
+            {index < alertsPreview.length - 1 && <View style={styles.divider} />}
+          </View>
+        ))}
+      </View>
+
       {/* Emergency Contacts */}
       <SectionHeader
         title="Emergency Contacts"
@@ -253,25 +261,14 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Latest Alerts */}
-      <SectionHeader title="Latest Alerts" actionLabel="View All" onActionPress={() => setAllAlertsVisible(true)} />
-      <View style={styles.alertsCard}>
-        {ALERTS.map((item, index) => (
-          <View key={item.id}>
-            <AlertRow item={item} onPress={setSelectedAlert} />
-            {index < ALERTS.length - 1 && <View style={styles.divider} />}
-          </View>
-        ))}
-      </View>
-
-      {/* Safety Resources */}
+      {/* Safety Resources — preview only */}
       <SectionHeader
         title="Safety Resources"
         actionLabel="See All"
         onActionPress={() => router.push('/(tabs)/awareness' as any)}
       />
       <View style={styles.resourcesList}>
-        {RESOURCES.map((item) => (
+        {resourcesPreview.map((item) => (
           <ResourceCard key={item.id} item={item} onPress={setSelectedResource} />
         ))}
       </View>
@@ -325,7 +322,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Barangay Detail */}
+      {/* Barangay Detail — simplified summary, no dense grid */}
       <HalfSheet visible={!!selectedBarangay} onClose={() => setSelectedBarangay(null)}>
         <View style={styles.modalIconWrap}>
           <MaterialCommunityIcons name="map-marker-radius" size={26} color={COLORS.primaryOrange} />
@@ -336,19 +333,9 @@ export default function HomeScreen() {
             {selectedBarangay?.risk} Risk Level
           </Text>
         </View>
-        <View style={styles.detailGrid}>
-          {[
-            { label: 'Incidents this month', value: String(selectedBarangay?.incidents ?? 0) },
-            { label: 'Status', value: 'Monitored' },
-            { label: 'BFP Station', value: 'Lian Main' },
-            { label: 'Last Reported', value: '3 days ago' },
-          ].map((d) => (
-            <View key={d.label} style={styles.detailItem}>
-              <Text style={styles.detailLabel}>{d.label}</Text>
-              <Text style={styles.detailValue}>{d.value}</Text>
-            </View>
-          ))}
-        </View>
+        <Text style={styles.barangaySummaryText}>
+          {selectedBarangay?.incidents ?? 0} {selectedBarangay?.incidents === 1 ? 'incident' : 'incidents'} this month · monitored by BFP Lian Main
+        </Text>
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.primaryActionBtn}
@@ -373,12 +360,6 @@ export default function HomeScreen() {
         <Text style={[styles.modalMessage, { fontSize: 11, color: COLORS.mutedText, marginTop: -8 }]}>
           {selectedAlert?.timestamp}
         </Text>
-        <View style={styles.alertInfoBox}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.accentViolet} />
-          <Text style={styles.alertInfoText}>
-            Issued by BFP Lian. Follow local safety protocols and keep emergency contacts ready.
-          </Text>
-        </View>
         <TouchableOpacity activeOpacity={0.7} style={styles.ghostBtn} onPress={() => setSelectedAlert(null)}>
           <Text style={styles.ghostBtnText}>Dismiss</Text>
         </TouchableOpacity>
@@ -394,9 +375,6 @@ export default function HomeScreen() {
         </Text>
         <Text style={[styles.modalMessage, { textAlign: 'left', alignSelf: 'flex-start', lineHeight: 20 }]}>
           {selectedResource?.snippet}
-        </Text>
-        <Text style={[styles.modalMessage, { textAlign: 'left', alignSelf: 'flex-start', lineHeight: 20, color: COLORS.slateText, marginTop: -8 }]}>
-          For full details, visit the awareness section or contact your local BFP station.
         </Text>
         <TouchableOpacity
           activeOpacity={0.85}
@@ -475,7 +453,7 @@ export default function HomeScreen() {
                 <Text style={styles.alertTitle}>{item.title}</Text>
                 <StatusBadge variant="alert" value={item.type} />
               </View>
-              <Text style={styles.alertDescription}>{item.description}</Text>
+              <Text style={styles.alertDescription} numberOfLines={2}>{item.description}</Text>
               <Text style={styles.alertTimestamp}>{item.timestamp}</Text>
             </TouchableOpacity>
             {index < ALERTS.length - 1 && <View style={styles.divider} />}
@@ -602,18 +580,16 @@ const styles = StyleSheet.create({
   dangerBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', backgroundColor: COLORS.criticalRed },
   dangerBtnText: { fontSize: 13.5, fontWeight: '700', color: '#FFFFFF' },
 
-  riskBadgeRow: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 20 },
+  riskBadgeRow: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 16 },
   riskBadgeText: { fontSize: 12.5, fontWeight: '700' },
-  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, width: '100%', marginBottom: 20 },
-  detailItem: { width: '47%', backgroundColor: COLORS.surfaceMuted, borderRadius: 14, padding: 12 },
-  detailLabel: { fontSize: 10.5, color: COLORS.mutedText, marginBottom: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  detailValue: { fontSize: 15, fontWeight: '800', color: COLORS.deepIndigo },
 
-  alertInfoBox: {
-    flexDirection: 'row', gap: 8, backgroundColor: COLORS.surfaceMuted,
-    borderRadius: 14, padding: 12, marginBottom: 20, width: '100%', alignItems: 'flex-start',
+  barangaySummaryText: {
+    fontSize: 13,
+    color: COLORS.slateText,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
   },
-  alertInfoText: { fontSize: 12, color: COLORS.slateText, flex: 1, lineHeight: 17 },
 
   mapPlaceholder: {
     alignItems: 'center', paddingVertical: 32, gap: 10, width: '100%',

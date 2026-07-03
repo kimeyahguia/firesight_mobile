@@ -1,21 +1,22 @@
+import AppHeader from '@/components/common/AppHeader';
+import { COLORS, FONT_SIZES } from '@/constants/theme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  SafeAreaView,
-  Animated,
+  Alert,
   LayoutAnimation,
+  Linking,
   Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
   UIManager,
+  View,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '@/constants/theme';
-import { router } from 'expo-router';
-import AppHeader from '@/components/common/AppHeader';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -35,27 +36,10 @@ interface SafetyTopic {
   content: string;
 }
 
-interface SafetyGuide {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  readTime: string;
-  fullContent: string[];
-}
-
 interface PreventionTip {
   id: string;
   text: string;
   icon: IconName;
-}
-
-interface AwarenessArticle {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  content: string;
 }
 
 interface QuizQuestion {
@@ -71,6 +55,61 @@ interface EmergencyStep {
   step: number;
   text: string;
 }
+
+interface Officer {
+  id: string;
+  name: string;
+  rank: string;
+  role: string;
+}
+
+// Unified resource type — merges what used to be "guides" and "articles"
+interface Resource {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  icon: IconName;
+  readTime: string;
+  body: string[]; // step list or paragraph(s) — rendered as bullets either way
+}
+
+// ────────────────────────────────────────────────────────────
+// BFP Lian Fire Station — Overview Data
+// TODO: Replace ALL placeholder details (contact, address, officers,
+// established year) with verified information from BFP Lian Fire Station.
+// ────────────────────────────────────────────────────────────
+
+const BFP_LIAN_INFO = {
+  name: 'BFP Lian Fire Station',
+  tagline: 'Serving Lian, Batangas with pride and readiness',
+  address: 'Poblacion, Lian, Batangas', // TODO: confirm exact address
+  contactNumber: '(043) 000-0000', // TODO: replace with real hotline
+  emergencyHotline: '911',
+  officeHours: 'Open 24/7 for emergency response',
+  established: '—', // TODO: add actual founding year if available
+  barangaysCovered: 22, // TODO: confirm actual number of barangays in Lian
+  mission:
+    'To prevent and suppress destructive fires, investigate their causes, enforce the Fire Code of the Philippines, and respond to man-made and natural disasters and other emergencies.',
+  vision:
+    'A center of excellence in fire protection service, committed to the safety and welfare of every resident of Lian, Batangas.',
+  services: [
+    'Fire suppression and emergency response',
+    'Fire safety inspection and code enforcement',
+    'Fire investigation',
+    'Community fire safety education and drills',
+    'Emergency medical assistance during incidents',
+  ],
+};
+
+// PLACEHOLDER ONLY — dummy names/ranks for layout purposes.
+// TODO: Replace with actual BFP Lian Fire Station personnel roster.
+const BFP_OFFICERS: Officer[] = [
+  { id: '1', name: 'Juan Dela Cruz', rank: 'F/Insp', role: 'Fire Marshal / Station Head' },
+  { id: '2', name: 'Maria Santos', rank: 'F/SFO1', role: 'Deputy Fire Marshal' },
+  { id: '3', name: 'Ramon Garcia', rank: 'F/FO2', role: 'Fire Suppression Team Lead' },
+  { id: '4', name: 'Liza Reyes', rank: 'F/FO1', role: 'Community Education Officer' },
+];
 
 // ────────────────────────────────────────────────────────────
 // Data
@@ -111,52 +150,6 @@ const SAFETY_TOPICS: SafetyTopic[] = [
   },
 ];
 
-const FEATURED_GUIDES: SafetyGuide[] = [
-  {
-    id: 'house-fire-response',
-    title: 'What To Do During a House Fire',
-    summary: 'A step-by-step guide to staying safe and getting out quickly.',
-    category: 'Emergency',
-    readTime: '3 min read',
-    fullContent: [
-      'Activate your smoke alarm or shout "Fire!" to alert everyone in the house.',
-      'Feel the door with the back of your hand before opening. If hot, use another exit.',
-      'Stay low and crawl under smoke to reach the exit — clean air is near the floor.',
-      'Close doors behind you to slow the spread of fire.',
-      'Once outside, go to your meeting point and call 911 or BFP Lian.',
-      'Never re-enter a burning building for any reason.',
-    ],
-  },
-  {
-    id: 'kitchen-fire-guide',
-    title: 'Kitchen Fire Response Guide',
-    summary: 'How to handle grease fires and stovetop flare-ups safely.',
-    category: 'Prevention',
-    readTime: '2 min read',
-    fullContent: [
-      'For a small grease fire: slide a lid over the pan and turn off the heat. Never use water on grease fires.',
-      'If the fire grows or spreads, leave immediately and call for help.',
-      'Keep a fire extinguisher in your kitchen within easy reach.',
-      'Never leave cooking unattended — most kitchen fires start this way.',
-      'Keep dish towels, paper, and plastic away from your stovetop.',
-    ],
-  },
-  {
-    id: 'extinguisher-basics',
-    title: 'Fire Extinguisher Basics for Residents',
-    summary: 'Learn the PASS technique and when to use an extinguisher.',
-    category: 'Skills',
-    readTime: '4 min read',
-    fullContent: [
-      'PASS stands for: Pull the pin, Aim at the base of the fire, Squeeze the handle, Sweep side to side.',
-      'Only attempt to use an extinguisher if the fire is small, contained, and you have a clear exit behind you.',
-      'Use the correct type: Class A for ordinary materials, Class B for flammable liquids, Class C for electrical fires.',
-      'Check your extinguisher pressure gauge monthly and replace or recharge after any use.',
-      'If in doubt, get out — your safety is always more important than property.',
-    ],
-  },
-];
-
 const EMERGENCY_STEPS: EmergencyStep[] = [
   { id: '1', step: 1, text: 'Stay calm and alert people nearby' },
   { id: '2', step: 2, text: 'Call BFP Lian or 911 immediately' },
@@ -168,35 +161,69 @@ const EMERGENCY_STEPS: EmergencyStep[] = [
 const PREVENTION_TIPS: PreventionTip[] = [
   { id: '1', text: 'Do not overload outlets or extension cords', icon: 'flash-outline' },
   { id: '2', text: 'Have your LPG tank and hose checked regularly', icon: 'flame-outline' },
-  { id: '3', text: 'Store flammable materials away from heat sources', icon: 'archive-outline' },
-  { id: '4', text: 'Keep matches and lighters away from children', icon: 'shield-outline' },
-  { id: '5', text: 'Prepare and practice your evacuation plan', icon: 'map-outline' },
+  { id: '3', text: 'Keep matches and lighters away from children', icon: 'shield-outline' },
+  { id: '4', text: 'Prepare and practice your evacuation plan', icon: 'map-outline' },
 ];
 
-const AWARENESS_ARTICLES: AwarenessArticle[] = [
+// Merged former "guides" + "articles" into one compact resource list
+const RESOURCES: Resource[] = [
   {
-    id: '1',
-    title: 'Protecting Children During Fire Emergencies',
-    summary: 'Practical guidance for keeping kids safe and calm in a fire emergency.',
-    category: 'Family Safety',
-    content:
-      'Teach children to recognize the sound of a smoke alarm and what it means. Practice your escape plan with them so it becomes second nature. Assign a trusted adult to help young children and toddlers during evacuation. Remind them never to hide from firefighters — they are there to help.',
+    id: 'house-fire-response',
+    title: 'During a House Fire',
+    summary: 'Steps to stay safe and get out fast.',
+    category: 'Emergency',
+    icon: 'exit-outline',
+    readTime: '3 min',
+    body: [
+      'Shout "Fire!" or trigger the smoke alarm to alert everyone.',
+      'Feel the door before opening — use another exit if hot.',
+      'Stay low and crawl under smoke to reach the exit.',
+      'Close doors behind you to slow the spread.',
+      'Go to your meeting point, then call 911 or BFP Lian.',
+      'Never re-enter a burning building.',
+    ],
   },
   {
-    id: '2',
-    title: 'Community Fire Drill Preparation',
-    summary: 'How barangay drills work and how residents can get involved.',
-    category: 'Community',
-    content:
-      'Barangay fire drills are coordinated with BFP to simulate real emergency scenarios. Residents are encouraged to participate — drills help identify gaps in evacuation routes and improve response times. Contact your barangay captain or BFP Lian to find out when the next drill is scheduled.',
+    id: 'kitchen-fire-guide',
+    title: 'Kitchen Fire Response',
+    summary: 'Handling grease fires and flare-ups.',
+    category: 'Prevention',
+    icon: 'flame-outline',
+    readTime: '2 min',
+    body: [
+      'Slide a lid over a grease fire and turn off the heat — never use water.',
+      'If it grows or spreads, leave immediately and call for help.',
+      'Keep a fire extinguisher within easy reach in the kitchen.',
+      'Never leave cooking unattended.',
+    ],
   },
   {
-    id: '3',
-    title: 'Fire Safety During Brownouts and Power Surges',
-    summary: 'Reduce electrical fire risk when the power is unstable.',
+    id: 'children-safety',
+    title: 'Protecting Children',
+    summary: 'Keeping kids safe during emergencies.',
+    category: 'Family',
+    icon: 'people-outline',
+    readTime: '2 min',
+    body: [
+      'Teach kids to recognize the smoke alarm sound.',
+      'Practice your escape plan together regularly.',
+      'Assign a trusted adult to guide young children out.',
+      'Remind them never to hide from firefighters.',
+    ],
+  },
+  {
+    id: 'brownout-safety',
+    title: 'Brownouts & Power Surges',
+    summary: 'Lower electrical fire risk during outages.',
     category: 'Electrical',
-    content:
-      'During brownouts, avoid using candles near flammable materials. Unplug appliances before a power outage and use surge protectors when power is restored. Power surges can damage wiring and increase fire risk — consider investing in a whole-house surge protector if outages are frequent in your area.',
+    icon: 'flash-outline',
+    readTime: '2 min',
+    body: [
+      'Avoid candles near flammable materials during brownouts.',
+      'Unplug appliances before an outage happens.',
+      'Use surge protectors once power is restored.',
+      'Consider a whole-house surge protector if outages are frequent.',
+    ],
   },
 ];
 
@@ -248,9 +275,7 @@ const QUIZ_QUESTIONS: QuizQuestion[] = [
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   Emergency: { bg: '#FEE2E2', text: '#DC2626' },
   Prevention: { bg: '#FEF3C7', text: '#B45309' },
-  Skills: { bg: '#EDE9FE', text: '#6D5BD0' },
-  'Family Safety': { bg: '#ECFDF5', text: '#15803D' },
-  Community: { bg: '#EFF6FF', text: '#1D4ED8' },
+  Family: { bg: '#ECFDF5', text: '#15803D' },
   Electrical: { bg: '#FFF7ED', text: '#C2410C' },
 };
 
@@ -263,6 +288,137 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
     <View style={styles.sectionHeaderWrap}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+    </View>
+  );
+}
+
+function BFPOverviewCard({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const handleCall = (number: string) => {
+    const cleaned = number.replace(/[^0-9+]/g, '');
+    if (!cleaned) {
+      Alert.alert('Unavailable', 'This contact number is not yet available.');
+      return;
+    }
+    Linking.openURL(`tel:${cleaned}`).catch(() =>
+      Alert.alert('Error', 'Unable to open the dialer on this device.')
+    );
+  };
+
+  return (
+    <View style={styles.bfpCard}>
+      <View style={styles.bfpTopRow}>
+        <View style={styles.bfpLogoWrap}>
+          <MaterialCommunityIcons name="fire-truck" size={26} color={COLORS.primaryOrange} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.bfpName}>{BFP_LIAN_INFO.name}</Text>
+          <Text style={styles.bfpTagline}>{BFP_LIAN_INFO.tagline}</Text>
+        </View>
+      </View>
+
+      {/* Quick stats */}
+      <View style={styles.bfpStatsRow}>
+        <View style={styles.bfpStatBox}>
+          <Text style={styles.bfpStatValue}>{BFP_LIAN_INFO.barangaysCovered}</Text>
+          <Text style={styles.bfpStatLabel}>Barangays Covered</Text>
+        </View>
+        <View style={styles.bfpStatDivider} />
+        <View style={styles.bfpStatBox}>
+          <Text style={styles.bfpStatValue}>24/7</Text>
+          <Text style={styles.bfpStatLabel}>Emergency Response</Text>
+        </View>
+        <View style={styles.bfpStatDivider} />
+        <View style={styles.bfpStatBox}>
+          <Text style={styles.bfpStatValue}>{BFP_LIAN_INFO.established}</Text>
+          <Text style={styles.bfpStatLabel}>Established</Text>
+        </View>
+      </View>
+
+      {/* Contact rows */}
+      <View style={styles.bfpContactRow}>
+        <Ionicons name="location-outline" size={16} color={COLORS.slateText} />
+        <Text style={styles.bfpContactText}>{BFP_LIAN_INFO.address}</Text>
+      </View>
+      <View style={styles.bfpContactRow}>
+        <Ionicons name="time-outline" size={16} color={COLORS.slateText} />
+        <Text style={styles.bfpContactText}>{BFP_LIAN_INFO.officeHours}</Text>
+      </View>
+
+      {/* Call buttons */}
+      <View style={styles.bfpCallRow}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.bfpCallBtn}
+          onPress={() => handleCall(BFP_LIAN_INFO.contactNumber)}
+        >
+          <Ionicons name="call-outline" size={15} color="#FFFFFF" />
+          <Text style={styles.bfpCallBtnText}>Call Station</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.bfpEmergencyBtn}
+          onPress={() => handleCall(BFP_LIAN_INFO.emergencyHotline)}
+        >
+          <Ionicons name="alert-circle-outline" size={15} color={COLORS.primaryOrange} />
+          <Text style={styles.bfpEmergencyBtnText}>Emergency: {BFP_LIAN_INFO.emergencyHotline}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Expand toggle */}
+      <TouchableOpacity activeOpacity={0.8} style={styles.bfpMoreBtn} onPress={onToggle}>
+        <Text style={styles.bfpMoreBtnText}>{expanded ? 'Show less' : 'About BFP Lian'}</Text>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={COLORS.accentViolet} />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.bfpExpanded}>
+          <Text style={styles.bfpSectionLabel}>Mission</Text>
+          <Text style={styles.bfpSectionText}>{BFP_LIAN_INFO.mission}</Text>
+
+          <Text style={[styles.bfpSectionLabel, { marginTop: 14 }]}>Vision</Text>
+          <Text style={styles.bfpSectionText}>{BFP_LIAN_INFO.vision}</Text>
+
+          <Text style={[styles.bfpSectionLabel, { marginTop: 14 }]}>Services</Text>
+          <View style={{ marginTop: 6, gap: 8 }}>
+            {BFP_LIAN_INFO.services.map((service, i) => (
+              <View key={i} style={styles.bfpServiceRow}>
+                <View style={styles.bfpServiceDot} />
+                <Text style={styles.bfpServiceText}>{service}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.bfpOfficersHeaderRow}>
+            <Text style={[styles.bfpSectionLabel, { marginTop: 14 }]}>Station Officers</Text>
+            <View style={styles.bfpPlaceholderTag}>
+              <Text style={styles.bfpPlaceholderTagText}>Placeholder</Text>
+            </View>
+          </View>
+          <View style={{ marginTop: 6, gap: 10 }}>
+            {BFP_OFFICERS.map((officer) => (
+              <View key={officer.id} style={styles.officerRow}>
+                <View style={styles.officerAvatar}>
+                  <Text style={styles.officerAvatarText}>
+                    {officer.name.split(' ').map((n) => n[0]).join('')}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.officerName}>
+                    {officer.rank} {officer.name}
+                  </Text>
+                  <Text style={styles.officerRole}>{officer.role}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -319,83 +475,49 @@ function TopicCard({
   );
 }
 
-function GuideCard({
-  guide,
-  expanded,
+// Compact 2-column preview tile — tap to select, detail renders below the grid
+function ResourceTile({
+  resource,
+  active,
   onPress,
 }: {
-  guide: SafetyGuide;
-  expanded: boolean;
+  resource: Resource;
+  active: boolean;
   onPress: () => void;
 }) {
-  const catColor = CATEGORY_COLORS[guide.category] ?? { bg: COLORS.surfaceMuted, text: COLORS.accentViolet };
+  const catColor = CATEGORY_COLORS[resource.category] ?? { bg: COLORS.surfaceMuted, text: COLORS.accentViolet };
   return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.guideCard} onPress={onPress}>
-      <View style={styles.guideTopRow}>
-        <View style={styles.guideContent}>
-          <View style={[styles.guideBadge, { backgroundColor: catColor.bg }]}>
-            <Text style={[styles.guideBadgeText, { color: catColor.text }]}>{guide.category}</Text>
-          </View>
-          <Text style={styles.guideTitle}>{guide.title}</Text>
-          <Text style={styles.guideSummary}>{guide.summary}</Text>
-          <View style={styles.guideMetaRow}>
-            <Ionicons name="time-outline" size={13} color={COLORS.mutedText} />
-            <Text style={styles.guideMetaText}>{guide.readTime}</Text>
-          </View>
-        </View>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-forward'} size={20} color={COLORS.mutedText} />
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={[styles.resourceTile, active && styles.resourceTileActive]}
+      onPress={onPress}
+    >
+      <View style={[styles.resourceTileIconWrap, { backgroundColor: catColor.bg }]}>
+        <Ionicons name={resource.icon} size={17} color={catColor.text} />
       </View>
-      {expanded && (
-        <View style={styles.guideExpanded}>
-          <View style={styles.guideDivider} />
-          {guide.fullContent.map((line, i) => (
-            <View key={i} style={styles.guideStepRow}>
-              <View style={styles.guideStepDot} />
-              <Text style={styles.guideStepText}>{line}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <Text style={styles.resourceTileTitle} numberOfLines={2}>{resource.title}</Text>
+      <Text style={styles.resourceTileMeta}>{resource.readTime} read</Text>
     </TouchableOpacity>
   );
 }
 
-function ArticleCard({
-  article,
-  expanded,
-  onPress,
-}: {
-  article: AwarenessArticle;
-  expanded: boolean;
-  onPress: () => void;
-}) {
-  const catColor = CATEGORY_COLORS[article.category] ?? { bg: COLORS.surfaceMuted, text: COLORS.accentViolet };
+function ResourceDetail({ resource }: { resource: Resource }) {
+  const catColor = CATEGORY_COLORS[resource.category] ?? { bg: COLORS.surfaceMuted, text: COLORS.accentViolet };
   return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.articleCard} onPress={onPress}>
-      <View style={[styles.articleBadge, { backgroundColor: catColor.bg }]}>
-        <Text style={[styles.articleBadgeText, { color: catColor.text }]}>{article.category}</Text>
+    <View style={styles.resourceDetailCard}>
+      <View style={[styles.guideBadge, { backgroundColor: catColor.bg }]}>
+        <Text style={[styles.guideBadgeText, { color: catColor.text }]}>{resource.category}</Text>
       </View>
-      <Text style={styles.articleTitle}>{article.title}</Text>
-      <Text style={styles.articleSummary}>{article.summary}</Text>
-      {expanded ? (
-        <View style={styles.articleExpanded}>
-          <Text style={styles.articleContent}>{article.content}</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.collapseBtn}
-            onPress={onPress}
-          >
-            <Text style={styles.collapseBtnText}>Show less</Text>
-            <Ionicons name="chevron-up" size={13} color={COLORS.primaryOrange} />
-          </TouchableOpacity>
+      <Text style={styles.resourceDetailTitle}>{resource.title}</Text>
+      <Text style={styles.resourceDetailSummary}>{resource.summary}</Text>
+      <View style={styles.guideDivider} />
+      {resource.body.map((line, i) => (
+        <View key={i} style={styles.guideStepRow}>
+          <View style={styles.guideStepDot} />
+          <Text style={styles.guideStepText}>{line}</Text>
         </View>
-      ) : (
-        <View style={styles.articleReadMoreRow}>
-          <Text style={styles.articleReadMoreText}>Read More</Text>
-          <Ionicons name="arrow-forward" size={14} color={COLORS.primaryOrange} />
-        </View>
-      )}
-    </TouchableOpacity>
+      ))}
+    </View>
   );
 }
 
@@ -471,7 +593,6 @@ function QuizSection() {
         </Text>
       </View>
 
-      {/* Progress bar */}
       <View style={styles.quizProgressBar}>
         <View style={[styles.quizProgressFill, { width: `${((current + 1) / QUIZ_QUESTIONS.length) * 100}%` }]} />
       </View>
@@ -536,23 +657,23 @@ function QuizSection() {
 
 export default function AwarenessScreen() {
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
-  const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
-  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [doneTopic, setDoneTopic] = useState<Set<string>>(new Set());
+  const [bfpExpanded, setBfpExpanded] = useState(false);
+  const [activeResource, setActiveResource] = useState<string>(RESOURCES[0].id);
 
   const toggleTopic = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedTopic((prev) => (prev === id ? null : id));
   };
 
-  const toggleGuide = (id: string) => {
+  const toggleBfp = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedGuide((prev) => (prev === id ? null : id));
+    setBfpExpanded((prev) => !prev);
   };
 
-  const toggleArticle = (id: string) => {
+  const selectResource = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedArticle((prev) => (prev === id ? null : id));
+    setActiveResource(id);
   };
 
   const markTopicDone = (id: string) => {
@@ -564,6 +685,7 @@ export default function AwarenessScreen() {
   };
 
   const progress = Math.round((doneTopic.size / SAFETY_TOPICS.length) * 100);
+  const selectedResource = RESOURCES.find((r) => r.id === activeResource) ?? RESOURCES[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -581,6 +703,9 @@ export default function AwarenessScreen() {
           showBell
           showBrand
         />
+
+        {/* BFP Lian Overview — shown first */}
+        <BFPOverviewCard expanded={bfpExpanded} onToggle={toggleBfp} />
 
         {/* Hero */}
         <View style={styles.heroCard}>
@@ -639,19 +764,6 @@ export default function AwarenessScreen() {
           ))}
         </View>
 
-        {/* Featured Guides — expandable */}
-        <SectionHeader title="Featured Guides" subtitle="What you should know" />
-        <View style={styles.guidesList}>
-          {FEATURED_GUIDES.map((guide) => (
-            <GuideCard
-              key={guide.id}
-              guide={guide}
-              expanded={expandedGuide === guide.id}
-              onPress={() => toggleGuide(guide.id)}
-            />
-          ))}
-        </View>
-
         {/* Emergency Steps */}
         <View style={styles.emergencyCard}>
           <View style={styles.emergencyHeaderRow}>
@@ -692,17 +804,20 @@ export default function AwarenessScreen() {
         <SectionHeader title="Test Your Knowledge" subtitle="Quick fire safety quiz" />
         <QuizSection />
 
-        {/* Learn More Articles — expandable */}
-        <SectionHeader title="Learn More" subtitle="Safety resources for your household" />
-        <View style={styles.articlesList}>
-          {AWARENESS_ARTICLES.map((article) => (
-            <ArticleCard
-              key={article.id}
-              article={article}
-              expanded={expandedArticle === article.id}
-              onPress={() => toggleArticle(article.id)}
+        {/* Resources — compact grid, merged guides + articles */}
+        <SectionHeader title="Resources" subtitle="Tap a card to read" />
+        <View style={styles.resourceGrid}>
+          {RESOURCES.map((resource) => (
+            <ResourceTile
+              key={resource.id}
+              resource={resource}
+              active={activeResource === resource.id}
+              onPress={() => selectResource(resource.id)}
             />
           ))}
+        </View>
+        <View style={{ marginBottom: 28 }}>
+          <ResourceDetail resource={selectedResource} />
         </View>
 
         {/* CTA */}
@@ -740,8 +855,48 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
 
   sectionHeaderWrap: { marginBottom: 14 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: COLORS.deepIndigo },
-  sectionSubtitle: { fontSize: 12.5, color: COLORS.slateText, marginTop: 2 },
+  sectionTitle: { fontSize: FONT_SIZES.md ?? 17, fontWeight: '700', color: COLORS.deepIndigo },
+  sectionSubtitle: { fontSize: FONT_SIZES.xs ?? 12.5, color: COLORS.slateText, marginTop: 2 },
+
+  // BFP Overview
+  bfpCard: {
+    backgroundColor: COLORS.card, borderRadius: 22, padding: 20, marginBottom: 20,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: COLORS.deepIndigo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+  },
+  bfpTopRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 18 },
+  bfpLogoWrap: { width: 52, height: 52, borderRadius: 16, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  bfpName: { fontSize: 16.5, fontWeight: '800', color: COLORS.deepIndigo, marginBottom: 2 },
+  bfpTagline: { fontSize: 12, color: COLORS.slateText, lineHeight: 16 },
+  bfpStatsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceMuted, borderRadius: 14, paddingVertical: 14, marginBottom: 16 },
+  bfpStatBox: { flex: 1, alignItems: 'center' },
+  bfpStatValue: { fontSize: 16, fontWeight: '800', color: COLORS.primaryOrange, marginBottom: 2 },
+  bfpStatLabel: { fontSize: 10, color: COLORS.slateText, textAlign: 'center' },
+  bfpStatDivider: { width: 1, height: 30, backgroundColor: COLORS.border },
+  bfpContactRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  bfpContactText: { fontSize: 12.5, color: COLORS.deepIndigo, flex: 1 },
+  bfpCallRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  bfpCallBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.deepIndigo, borderRadius: 12, paddingVertical: 11 },
+  bfpCallBtnText: { fontSize: 12.5, fontWeight: '700', color: '#FFFFFF' },
+  bfpEmergencyBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF7ED', borderRadius: 12, paddingVertical: 11, borderWidth: 1, borderColor: '#FED7AA' },
+  bfpEmergencyBtnText: { fontSize: 12.5, fontWeight: '700', color: COLORS.primaryOrange },
+  bfpMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 6 },
+  bfpMoreBtnText: { fontSize: 12.5, fontWeight: '700', color: COLORS.accentViolet },
+  bfpExpanded: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  bfpSectionLabel: { fontSize: 12, fontWeight: '700', color: COLORS.deepIndigo, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
+  bfpSectionText: { fontSize: 13, color: COLORS.slateText, lineHeight: 19 },
+  bfpServiceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  bfpServiceDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COLORS.primaryOrange, marginTop: 7 },
+  bfpServiceText: { flex: 1, fontSize: 12.5, color: COLORS.deepIndigo, lineHeight: 18 },
+
+  bfpOfficersHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bfpPlaceholderTag: { backgroundColor: '#FEF3C7', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 14 },
+  bfpPlaceholderTagText: { fontSize: 9.5, fontWeight: '700', color: '#B45309', letterSpacing: 0.3 },
+  officerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  officerAvatar: { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  officerAvatarText: { fontSize: 11, fontWeight: '700', color: COLORS.accentViolet },
+  officerName: { fontSize: 12.5, fontWeight: '700', color: COLORS.deepIndigo },
+  officerRole: { fontSize: 11, color: COLORS.slateText, marginTop: 1 },
 
   // Hero
   heroCard: {
@@ -779,23 +934,6 @@ const styles = StyleSheet.create({
   markDoneBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: COLORS.border },
   markDoneBtnDone: { backgroundColor: '#ECFDF5', borderColor: COLORS.successGreen },
   markDoneBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.slateText },
-
-  // Guides
-  guidesList: { gap: 12, marginBottom: 28 },
-  guideCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border },
-  guideTopRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  guideContent: { flex: 1 },
-  guideBadge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, marginBottom: 8 },
-  guideBadgeText: { fontSize: 10, fontWeight: '700' },
-  guideTitle: { fontSize: 14.5, fontWeight: '700', color: COLORS.deepIndigo, marginBottom: 4 },
-  guideSummary: { fontSize: 12.5, color: COLORS.slateText, lineHeight: 17, marginBottom: 8 },
-  guideMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  guideMetaText: { fontSize: 11, color: COLORS.mutedText },
-  guideExpanded: { marginTop: 14 },
-  guideDivider: { height: 1, backgroundColor: COLORS.border, marginBottom: 14 },
-  guideStepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  guideStepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.primaryOrange, marginTop: 7 },
-  guideStepText: { flex: 1, fontSize: 13, color: COLORS.deepIndigo, lineHeight: 19 },
 
   // Emergency
   emergencyCard: { backgroundColor: COLORS.surfaceMuted, borderRadius: 20, padding: 20, marginBottom: 28, borderWidth: 1, borderColor: COLORS.border },
@@ -840,19 +978,25 @@ const styles = StyleSheet.create({
   quizRetryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primaryOrange, borderRadius: 14, paddingVertical: 13 },
   quizRetryBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // Articles
-  articlesList: { gap: 12, marginBottom: 28 },
-  articleCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: COLORS.border },
-  articleBadge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
-  articleBadgeText: { fontSize: 10.5, fontWeight: '700' },
-  articleTitle: { fontSize: 15, fontWeight: '700', color: COLORS.deepIndigo, marginBottom: 6 },
-  articleSummary: { fontSize: 12.5, color: COLORS.slateText, lineHeight: 18, marginBottom: 12 },
-  articleReadMoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  articleReadMoreText: { fontSize: 12.5, fontWeight: '700', color: COLORS.primaryOrange },
-  articleExpanded: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12, marginTop: 0 },
-  articleContent: { fontSize: 13, color: COLORS.deepIndigo, lineHeight: 20, marginBottom: 12 },
-  collapseBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  collapseBtnText: { fontSize: 12.5, fontWeight: '700', color: COLORS.primaryOrange },
+  // Resources — compact grid
+  resourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 },
+  resourceTile: {
+    width: '47%', backgroundColor: COLORS.card, borderRadius: 16, padding: 14,
+    borderWidth: 1.5, borderColor: COLORS.border,
+  },
+  resourceTileActive: { borderColor: COLORS.primaryOrange, backgroundColor: '#FFF7ED' },
+  resourceTileIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  resourceTileTitle: { fontSize: 12.5, fontWeight: '700', color: COLORS.deepIndigo, lineHeight: 16, marginBottom: 4 },
+  resourceTileMeta: { fontSize: 10.5, color: COLORS.mutedText },
+  resourceDetailCard: { backgroundColor: COLORS.card, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: COLORS.border },
+  resourceDetailTitle: { fontSize: 15, fontWeight: '700', color: COLORS.deepIndigo, marginBottom: 4, marginTop: 2 },
+  resourceDetailSummary: { fontSize: 12.5, color: COLORS.slateText, lineHeight: 18 },
+  guideBadge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, marginBottom: 8 },
+  guideBadgeText: { fontSize: 10, fontWeight: '700' },
+  guideDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 14 },
+  guideStepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  guideStepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.primaryOrange, marginTop: 7 },
+  guideStepText: { flex: 1, fontSize: 13, color: COLORS.deepIndigo, lineHeight: 19 },
 
   // CTA
   ctaCard: { backgroundColor: COLORS.deepIndigo, borderRadius: 22, padding: 22, alignItems: 'flex-start', shadowColor: COLORS.deepIndigo, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },

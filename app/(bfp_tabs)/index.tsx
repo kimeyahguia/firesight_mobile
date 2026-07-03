@@ -7,8 +7,10 @@ import {
   StyleSheet,
   StatusBar,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { COLORS, FONT_SIZES, RISK_COLORS, type RiskLevel } from '@/constants/theme';
 
 // ────────────────────────────────────────────────────────────
@@ -343,6 +345,22 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 export default function ResponderDashboardScreen() {
   const [activeIncidentCount] = useState(3);
+  const router = useRouter();
+
+  const handleLogout = () => {
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: async () => {
+          // clear stored session/token here if you're using AsyncStorage
+          // e.g. await AsyncStorage.removeItem('authToken');
+          router.replace('/login');
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -368,10 +386,15 @@ export default function ResponderDashboardScreen() {
                 <Text style={styles.responderBadgeText}>Responder</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
-              <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.85)" />
-              <View style={styles.bellDot} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
+                <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.85)" />
+                <View style={styles.bellDot} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={20} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Greeting */}
@@ -619,7 +642,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     letterSpacing: 0.4,
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   bellButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  logoutButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
