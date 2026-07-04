@@ -33,22 +33,25 @@ export const COLORS = {
   contactIconBg: '#FFF1E6',
 } as const;
 
-export type RiskLevel = 'Low' | 'Moderate' | 'High';
+import type { AlertType, RiskLevel } from './types';
 
-export const RISK_COLORS: Record<RiskLevel, { bg: string; text: string; dot: string }> = {
-  Low: { bg: '#ECFDF5', text: '#16A34A', dot: '#16A34A' },
-  Moderate: { bg: '#FFF7ED', text: '#C2410C', dot: '#F97316' },
-  High: { bg: '#FEF2F2', text: '#DC2626', dot: '#DC2626' },
+export type { AlertType, RiskLevel };
+
+export const RISK_COLORS: Record<RiskLevel, { dot: string; bg: string; text: string }> = {
+  Low: { dot: COLORS.successGreen, bg: '#ECFDF5', text: COLORS.successGreen },
+  Moderate: { dot: COLORS.warningAmber, bg: '#FFFBEB', text: '#B45309' },
+  High: { dot: COLORS.criticalRed, bg: '#FEF2F2', text: COLORS.criticalRed },
+  Critical: { dot: '#B91C1C', bg: '#FEE2E2', text: '#B91C1C' },
 };
 
-export type AlertType = 'Warning' | 'Update' | 'Drill' | 'Resolved';
-
-export const ALERT_COLORS: Record<AlertType, { bg: string; text: string }> = {
-  Warning: { bg: '#FEF2F2', text: '#DC2626' },
-  Update: { bg: '#EEF2FF', text: '#6D5BD0' },
-  Drill: { bg: '#FFF7ED', text: '#C2410C' },
-  Resolved: { bg: '#ECFDF5', text: '#16A34A' },
+export const ALERT_COLORS: Record<AlertType, { dot: string; bg: string; text: string }> = {
+  Advisory: { dot: COLORS.accentViolet, bg: '#EEF2FF', text: COLORS.accentViolet },
+  Warning: { dot: COLORS.warningAmber, bg: '#FFFBEB', text: '#B45309' },
+  Critical: { dot: COLORS.criticalRed, bg: '#FEF2F2', text: COLORS.criticalRed },
+  Resolved: { dot: COLORS.successGreen, bg: '#ECFDF5', text: COLORS.successGreen },
+  Drill: { dot: COLORS.accentViolet, bg: '#EEF2FF', text: COLORS.accentViolet },
 };
+
 
 // ────────────────────────────────────────────────────────────
 // Typography Scale

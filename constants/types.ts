@@ -4,9 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 // Shared domain types for FIRESIGHT
 // ────────────────────────────────────────────────────────────
 
-export type RiskLevel = 'Low' | 'Moderate' | 'High';
-
-export type AlertType = 'Warning' | 'Drill' | 'Resolved';
+export type RiskLevel = 'Low' | 'Moderate' | 'High' | 'Critical';
+export type AlertType = 'Advisory' | 'Warning' | 'Critical' | 'Resolved' | 'Drill';
+export type IncidentStatus = 'Active' | 'Responding' | 'Verified' | 'Resolved';
 
 export interface QuickAction {
   id: string;
