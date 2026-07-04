@@ -74,23 +74,28 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.deepIndigo,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)', // dating COLORS.deepIndigo — blend sa dark bg, ngayon visible na
     marginBottom: 8,
+    letterSpacing: 0.2,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceMuted,
+    backgroundColor: COLORS.card,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     paddingHorizontal: 14,
     gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   inputRowFocused: {
     borderColor: COLORS.primaryOrange,
-    backgroundColor: COLORS.card,
   },
   inputRowError: {
     borderColor: '#EF4444',
@@ -100,14 +105,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: 15,
     color: COLORS.deepIndigo,
-    paddingVertical: 14,
+    paddingVertical: 15,
   },
   errorText: {
     fontSize: 11.5,
-    color: '#EF4444',
+    color: '#FCA5A5',
     marginTop: 6,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

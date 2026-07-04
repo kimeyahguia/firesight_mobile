@@ -54,7 +54,7 @@ export default function PrimaryButton({
         <ActivityIndicator color={isPrimary ? '#FFFFFF' : COLORS.deepIndigo} size="small" />
       ) : (
         <>
-          {icon && <Ionicons name={icon} size={16} color={iconColor} />}
+          {icon && <Ionicons name={icon} size={17} color={iconColor} />}
           <Text
             style={[
               styles.label,
@@ -76,10 +76,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    minHeight: 52,
   },
   fullWidth: {
     flex: 1,
@@ -99,8 +100,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   label: {
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   labelPrimary: {
     color: '#FFFFFF',

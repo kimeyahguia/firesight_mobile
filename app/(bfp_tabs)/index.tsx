@@ -10,6 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES, RISK_COLORS, type RiskLevel } from '@/constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+
+const handleLogout = async () => {
+  await AsyncStorage.clear();
+  router.replace('/login');
+};
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -368,10 +375,17 @@ export default function ResponderDashboardScreen() {
                 <Text style={styles.responderBadgeText}>Responder</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
-              <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.85)" />
-              <View style={styles.bellDot} />
-            </TouchableOpacity>
+
+            <View style={styles.rightActions}>
+              <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={20} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
+                <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.85)" />
+                <View style={styles.bellDot} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Greeting */}
@@ -574,8 +588,23 @@ const styles = StyleSheet.create({
   heroHeader: {
     backgroundColor: COLORS.deepIndigo,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 50,
     paddingBottom: 32,
+  },
+    rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12, // ito yung layo ng logout sa bell, i-adjust mo kung gusto mo mas malayo
+  },
+  logoutButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   brandRow: {
     flexDirection: 'row',

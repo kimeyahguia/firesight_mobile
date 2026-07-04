@@ -10,7 +10,6 @@ import {
   TextInput,
   Alert,
   Modal,
-  Animated,
   Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -217,8 +216,6 @@ const MOCK_INCIDENTS: Incident[] = [
 
 const FILTER_CHIPS: FilterChip[] = ['All', 'Pending', 'Verified', 'Responding', 'Resolved'];
 
-const TIMELINE_STEPS: TimelineStep[] = ['Reported', 'Verified', 'Dispatched', 'On Scene', 'Resolved'];
-
 const TIMELINE_ICONS: Record<TimelineStep, keyof typeof Ionicons.glyphMap> = {
   Reported: 'alert-circle',
   Verified: 'shield-checkmark',
@@ -259,7 +256,7 @@ function StatusBadge({ status }: { status: IncidentStatus }) {
   const s = STATUS_STYLE[status];
   return (
     <View style={[shared.statusBadge, { backgroundColor: s.bg }]}>
-      <Ionicons name={s.icon} size={11} color={s.dot} />
+      <Ionicons name={s.icon} size={12} color={s.dot} />
       <Text style={[shared.statusText, { color: s.text }]}>{status}</Text>
     </View>
   );
@@ -270,8 +267,8 @@ const shared = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 999,
   },
   severityDot: { width: 5, height: 5, borderRadius: 3 },
@@ -280,8 +277,8 @@ const shared = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 999,
   },
   statusText: { fontSize: FONT_SIZES.tiny, fontWeight: '700' },
@@ -292,7 +289,7 @@ const shared = StyleSheet.create({
 // ────────────────────────────────────────────────────────────
 
 function IncidentDetailsModal({
-  incident,
+  incident: incidentProp,
   visible,
   onClose,
 }: {
@@ -300,10 +297,9 @@ function IncidentDetailsModal({
   visible: boolean;
   onClose: () => void;
 }) {
-  if (!incident) return null;
+  if (!incidentProp) return null;
 
-  const riskPalette = RISK_COLORS[incident.severity];
-  const statusStyle = STATUS_STYLE[incident.status];
+  const incident = incidentProp; // narrowed, di na null dito pababa
 
   function handleAction(label: string) {
     Alert.alert(label, `Action: ${label} for ${incident.refId}`, [
@@ -311,7 +307,7 @@ function IncidentDetailsModal({
       { text: 'Confirm', style: 'default' },
     ]);
   }
-
+  
   return (
     <Modal
       visible={visible}
@@ -350,7 +346,7 @@ function IncidentDetailsModal({
             <View style={detailStyles.sectionCard}>
               <View style={detailStyles.sectionTitleRow}>
                 <View style={[detailStyles.sectionIconWrap, { backgroundColor: '#FFF1E6' }]}>
-                  <MaterialCommunityIcons name="fire-alert" size={15} color={COLORS.primaryOrange} />
+                  <MaterialCommunityIcons name="fire-alert" size={16} color={COLORS.primaryOrange} />
                 </View>
                 <Text style={detailStyles.sectionTitle}>Incident Information</Text>
               </View>
@@ -407,7 +403,7 @@ function IncidentDetailsModal({
             <View style={detailStyles.sectionCard}>
               <View style={detailStyles.sectionTitleRow}>
                 <View style={[detailStyles.sectionIconWrap, { backgroundColor: '#EEF2FF' }]}>
-                  <Ionicons name="person-outline" size={15} color={COLORS.accentViolet} />
+                  <Ionicons name="person-outline" size={16} color={COLORS.accentViolet} />
                 </View>
                 <Text style={detailStyles.sectionTitle}>Reporter Information</Text>
               </View>
@@ -423,7 +419,7 @@ function IncidentDetailsModal({
                   <Text style={detailStyles.reporterSub}>{incident.reporterBarangay}, Lian</Text>
                 </View>
                 <TouchableOpacity activeOpacity={0.85} style={detailStyles.callButton}>
-                  <Ionicons name="call" size={15} color="#FFFFFF" />
+                  <Ionicons name="call" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
@@ -449,7 +445,7 @@ function IncidentDetailsModal({
               <View style={detailStyles.sectionCard}>
                 <View style={detailStyles.sectionTitleRow}>
                   <View style={[detailStyles.sectionIconWrap, { backgroundColor: '#F4F3FB' }]}>
-                    <Ionicons name="images-outline" size={15} color={COLORS.accentViolet} />
+                    <Ionicons name="images-outline" size={16} color={COLORS.accentViolet} />
                   </View>
                   <Text style={detailStyles.sectionTitle}>Incident Photos</Text>
                 </View>
@@ -481,7 +477,7 @@ function IncidentDetailsModal({
             <View style={detailStyles.sectionCard}>
               <View style={detailStyles.sectionTitleRow}>
                 <View style={[detailStyles.sectionIconWrap, { backgroundColor: '#ECFDF5' }]}>
-                  <Ionicons name="map-outline" size={15} color={COLORS.successGreen} />
+                  <Ionicons name="map-outline" size={16} color={COLORS.successGreen} />
                 </View>
                 <Text style={detailStyles.sectionTitle}>Incident Location</Text>
               </View>
@@ -521,7 +517,7 @@ function IncidentDetailsModal({
             <View style={detailStyles.sectionCard}>
               <View style={detailStyles.sectionTitleRow}>
                 <View style={[detailStyles.sectionIconWrap, { backgroundColor: '#FFF1E6' }]}>
-                  <Ionicons name="git-branch-outline" size={15} color={COLORS.primaryOrange} />
+                  <Ionicons name="git-branch-outline" size={16} color={COLORS.primaryOrange} />
                 </View>
                 <Text style={detailStyles.sectionTitle}>Incident Timeline</Text>
               </View>
@@ -602,7 +598,7 @@ function IncidentDetailsModal({
                   style={detailStyles.actionPrimary}
                   onPress={() => handleAction('Verify Report')}
                 >
-                  <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" />
+                  <Ionicons name="shield-checkmark" size={19} color="#FFFFFF" />
                   <Text style={detailStyles.actionPrimaryText}>Verify Report</Text>
                 </TouchableOpacity>
               )}
@@ -613,7 +609,7 @@ function IncidentDetailsModal({
                   style={detailStyles.actionDispatch}
                   onPress={() => handleAction('Dispatch Team')}
                 >
-                  <MaterialCommunityIcons name="fire-truck" size={18} color="#FFFFFF" />
+                  <MaterialCommunityIcons name="fire-truck" size={19} color="#FFFFFF" />
                   <Text style={detailStyles.actionPrimaryText}>Dispatch Team</Text>
                 </TouchableOpacity>
               )}
@@ -624,7 +620,7 @@ function IncidentDetailsModal({
                   style={detailStyles.actionUpdate}
                   onPress={() => handleAction('Update Incident')}
                 >
-                  <Ionicons name="refresh-outline" size={16} color={COLORS.deepIndigo} />
+                  <Ionicons name="refresh-outline" size={17} color={COLORS.deepIndigo} />
                   <Text style={detailStyles.actionUpdateText}>Update Incident Status</Text>
                 </TouchableOpacity>
               )}
@@ -634,7 +630,7 @@ function IncidentDetailsModal({
                 style={detailStyles.actionEvidence}
                 onPress={() => handleAction('Add Evidence')}
               >
-                <Ionicons name="camera-outline" size={16} color={COLORS.accentViolet} />
+                <Ionicons name="camera-outline" size={17} color={COLORS.accentViolet} />
                 <Text style={detailStyles.actionEvidenceText}>Add Evidence / Photo</Text>
               </TouchableOpacity>
 
@@ -644,7 +640,7 @@ function IncidentDetailsModal({
                   style={detailStyles.actionFalse}
                   onPress={() => handleAction('Mark as False Report')}
                 >
-                  <Ionicons name="close-circle-outline" size={16} color={COLORS.criticalRed} />
+                  <Ionicons name="close-circle-outline" size={17} color={COLORS.criticalRed} />
                   <Text style={detailStyles.actionFalseText}>Mark as False Report</Text>
                 </TouchableOpacity>
               )}
@@ -684,6 +680,16 @@ function IncidentCard({
     ]);
   }
 
+  // Simplicity: one primary action shown at a time (the thing that moves the
+  // incident forward), plus a single secondary "View Details" — instead of
+  // 3-4 competing buttons.
+  const primaryAction =
+    incident.status === 'Pending'
+      ? { label: 'Verify', icon: 'shield-checkmark-outline' as const, onPress: handleVerify, style: listStyles.actionButtonVerify, textStyle: listStyles.actionButtonVerifyText }
+      : incident.status !== 'Resolved'
+      ? { label: 'Update', icon: 'refresh-outline' as const, onPress: handleUpdate, style: listStyles.actionButtonUpdate, textStyle: listStyles.actionButtonUpdateText }
+      : null;
+
   return (
     <View style={listStyles.incidentCard}>
       <View style={[listStyles.cardStrip, { backgroundColor: RISK_COLORS[incident.severity].dot }]} />
@@ -700,67 +706,53 @@ function IncidentCard({
           </View>
           {incident.photoAttached && (
             <View style={listStyles.photoBadge}>
-              <Ionicons name="camera" size={12} color={COLORS.accentViolet} />
+              <Ionicons name="camera" size={13} color={COLORS.accentViolet} />
             </View>
           )}
         </View>
-
-        <View style={listStyles.cardDivider} />
 
         <Text style={listStyles.incidentType}>{incident.type}</Text>
         <Text style={listStyles.incidentDescription} numberOfLines={2}>
           {incident.description}
         </Text>
 
-        {/* Meta grid */}
-        <View style={listStyles.metaGrid}>
-          <View style={listStyles.metaItem}>
+        {/* Meta row — condensed to one line for scanability */}
+        <View style={listStyles.metaRow}>
+          <View style={listStyles.metaChip}>
             <Ionicons name="person-outline" size={12} color={COLORS.mutedText} />
-            <Text style={listStyles.metaLabel}>Reporter</Text>
-            <Text style={listStyles.metaValue}>{incident.reporter}</Text>
+            <Text style={listStyles.metaChipText}>{incident.reporter}</Text>
           </View>
-          <View style={listStyles.metaItem}>
+          <View style={listStyles.metaChip}>
             <Ionicons name="location-outline" size={12} color={COLORS.mutedText} />
-            <Text style={listStyles.metaLabel}>Barangay</Text>
-            <Text style={listStyles.metaValue}>{incident.barangay}</Text>
+            <Text style={listStyles.metaChipText}>{incident.barangay}</Text>
           </View>
-          <View style={listStyles.metaItem}>
+          <View style={listStyles.metaChip}>
             <Ionicons name="time-outline" size={12} color={COLORS.mutedText} />
-            <Text style={listStyles.metaLabel}>Date & Time</Text>
-            <Text style={listStyles.metaValue}>{incident.dateTime}</Text>
+            <Text style={listStyles.metaChipText}>{incident.dateTime.split('·')[1]?.trim() ?? incident.dateTime}</Text>
           </View>
         </View>
 
-        <View style={listStyles.cardDivider} />
-
-        {/* Actions */}
+        {/* Actions: secondary (outline) + at most one primary action */}
         <View style={listStyles.actionRow}>
           <TouchableOpacity
             activeOpacity={0.8}
             style={listStyles.actionButtonOutline}
             onPress={() => onViewDetails(incident)}
           >
-            <Ionicons name="eye-outline" size={14} color={COLORS.deepIndigo} />
+            <Ionicons name="eye-outline" size={15} color={COLORS.deepIndigo} />
             <Text style={listStyles.actionButtonOutlineText}>View Details</Text>
           </TouchableOpacity>
 
-          {incident.status === 'Pending' && (
-            <TouchableOpacity activeOpacity={0.8} style={listStyles.actionButtonVerify} onPress={handleVerify}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={COLORS.accentViolet} />
-              <Text style={listStyles.actionButtonVerifyText}>Verify</Text>
-            </TouchableOpacity>
-          )}
-
-          {incident.status !== 'Resolved' && (
-            <TouchableOpacity activeOpacity={0.8} style={listStyles.actionButtonUpdate} onPress={handleUpdate}>
-              <Ionicons name="refresh-outline" size={14} color="#FFFFFF" />
-              <Text style={listStyles.actionButtonUpdateText}>Update</Text>
+          {primaryAction && (
+            <TouchableOpacity activeOpacity={0.8} style={primaryAction.style} onPress={primaryAction.onPress}>
+              <Ionicons name={primaryAction.icon} size={15} color={incident.status === 'Pending' ? COLORS.accentViolet : '#FFFFFF'} />
+              <Text style={primaryAction.textStyle}>{primaryAction.label}</Text>
             </TouchableOpacity>
           )}
 
           {incident.status === 'Resolved' && (
             <View style={listStyles.resolvedTag}>
-              <Ionicons name="checkmark-circle" size={13} color={COLORS.successGreen} />
+              <Ionicons name="checkmark-circle" size={14} color={COLORS.successGreen} />
               <Text style={listStyles.resolvedTagText}>Closed</Text>
             </View>
           )}
@@ -816,10 +808,10 @@ export default function IncidentsScreen() {
           </View>
           <View style={listStyles.headerRight}>
             <TouchableOpacity activeOpacity={0.8} style={listStyles.headerIconButton}>
-              <Ionicons name="funnel-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="funnel-outline" size={19} color="rgba(255,255,255,0.9)" />
             </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.8} style={listStyles.headerIconButton}>
-              <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="notifications-outline" size={19} color="rgba(255,255,255,0.9)" />
               <View style={listStyles.bellDot} />
             </TouchableOpacity>
           </View>
@@ -842,18 +834,18 @@ export default function IncidentsScreen() {
 
         {/* Search bar */}
         <View style={listStyles.searchBar}>
-          <Ionicons name="search-outline" size={16} color={COLORS.mutedText} />
+          <Ionicons name="search-outline" size={17} color="rgba(255,255,255,0.6)" />
           <TextInput
             style={listStyles.searchInput}
             placeholder="Search by ID, reporter, barangay..."
-            placeholderTextColor="rgba(255,255,255,0.35)"
+            placeholderTextColor="rgba(255,255,255,0.5)"
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.5)" />
+            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7} hitSlop={8}>
+              <Ionicons name="close-circle" size={17} color="rgba(255,255,255,0.6)" />
             </TouchableOpacity>
           )}
         </View>
@@ -946,7 +938,7 @@ const listStyles = StyleSheet.create({
   header: {
     backgroundColor: COLORS.deepIndigo,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 50,
     paddingBottom: 16,
   },
   headerTopRow: {
@@ -958,7 +950,7 @@ const listStyles = StyleSheet.create({
   headerEyebrow: {
     fontSize: FONT_SIZES.tiny,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.55)',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 3,
@@ -970,20 +962,21 @@ const listStyles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   headerRight: { flexDirection: 'row', gap: 8 },
+  // Touch-Friendly: 44px min tap target
   headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   bellDot: {
     position: 'absolute',
-    top: 8,
-    right: 9,
+    top: 10,
+    right: 11,
     width: 7,
     height: 7,
     borderRadius: 4,
@@ -995,25 +988,27 @@ const listStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
-    paddingVertical: 12,
+    paddingVertical: 13,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
-  summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
-  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 3 },
+  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 4 },
   summaryValue: { fontSize: FONT_SIZES.cardTitle, fontWeight: '800' },
-  summaryLabel: { fontSize: FONT_SIZES.tiny, color: 'rgba(255,255,255,0.45)', fontWeight: '600' },
+  summaryLabel: { fontSize: FONT_SIZES.tiny, color: 'rgba(255,255,255,0.55)', fontWeight: '600' },
+  // Readability: stronger contrast on search bar (text + placeholder were
+  // barely visible before against the dark background)
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
     borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    height: 48,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   searchInput: { flex: 1, fontSize: FONT_SIZES.secondary, color: '#FFFFFF', padding: 0 },
   filtersWrap: {
@@ -1023,13 +1018,13 @@ const listStyles = StyleSheet.create({
     paddingTop: 16,
     marginTop: -4,
   },
-  filtersScroll: { paddingHorizontal: 20, gap: 8, paddingBottom: 12 },
+  filtersScroll: { paddingHorizontal: 20, gap: 8, paddingBottom: 14 },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    height: 38,
     borderRadius: 999,
     backgroundColor: COLORS.surfaceMuted,
     borderWidth: 1,
@@ -1039,11 +1034,11 @@ const listStyles = StyleSheet.create({
   filterChipText: { fontSize: FONT_SIZES.caption, fontWeight: '700', color: COLORS.slateText },
   filterChipTextActive: { color: '#FFFFFF' },
   filterChipCount: { backgroundColor: COLORS.border, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
-  filterChipCountActive: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  filterChipCountActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
   filterChipCountText: { fontSize: FONT_SIZES.tiny, fontWeight: '700', color: COLORS.slateText },
   filterChipCountTextActive: { color: '#FFFFFF' },
   scrollView: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 4 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 6 },
   resultCount: {
     fontSize: FONT_SIZES.caption,
     fontWeight: '700',
@@ -1067,41 +1062,54 @@ const listStyles = StyleSheet.create({
     elevation: 2,
   },
   cardStrip: { width: 4 },
-  cardInner: { flex: 1, padding: 16 },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  cardTopLeft: { flex: 1 },
-  refId: { fontSize: FONT_SIZES.caption, fontWeight: '800', color: COLORS.accentViolet, letterSpacing: 0.4, marginBottom: 6 },
+  cardInner: { flex: 1, padding: 16, gap: 10 },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardTopLeft: { flex: 1, gap: 8 },
+  refId: { fontSize: FONT_SIZES.caption, fontWeight: '800', color: COLORS.accentViolet, letterSpacing: 0.4 },
   badgeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  photoBadge: { width: 28, height: 28, borderRadius: 9, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
-  cardDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 12 },
-  incidentType: { fontSize: FONT_SIZES.body, fontWeight: '800', color: COLORS.deepIndigo, marginBottom: 4 },
-  incidentDescription: { fontSize: FONT_SIZES.caption, color: COLORS.slateText, lineHeight: 17, marginBottom: 14 },
-  metaGrid: { gap: 8 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaLabel: { fontSize: FONT_SIZES.caption, color: COLORS.mutedText, fontWeight: '600', width: 72 },
-  metaValue: { fontSize: FONT_SIZES.caption, color: COLORS.deepIndigo, fontWeight: '700', flex: 1 },
-  actionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  photoBadge: { width: 30, height: 30, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
+  incidentType: { fontSize: FONT_SIZES.body, fontWeight: '800', color: COLORS.deepIndigo },
+  incidentDescription: { fontSize: FONT_SIZES.caption, color: COLORS.slateText, lineHeight: 18 },
+  // Simplicity + Readability: one scrollable meta row of chips instead of a
+  // stacked label/value grid — less vertical noise, still fully scannable.
+  metaRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  metaChipText: { fontSize: FONT_SIZES.tiny, color: COLORS.slateText, fontWeight: '600', maxWidth: 120 },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  // Touch-Friendly: min height 44, and secondary/primary contrast is clearer
   actionButtonOutline: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12,
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12,
     backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: COLORS.border,
   },
   actionButtonOutlineText: { fontSize: FONT_SIZES.caption, fontWeight: '700', color: COLORS.deepIndigo },
   actionButtonVerify: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12,
-    backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: 'rgba(109,91,208,0.2)',
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12,
+    backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: 'rgba(109,91,208,0.25)',
   },
   actionButtonVerifyText: { fontSize: FONT_SIZES.caption, fontWeight: '700', color: COLORS.accentViolet },
   actionButtonUpdate: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12,
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12,
     backgroundColor: COLORS.deepIndigo,
   },
   actionButtonUpdateText: { fontSize: FONT_SIZES.caption, fontWeight: '700', color: '#FFFFFF' },
   resolvedTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: '#ECFDF5',
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12, backgroundColor: '#ECFDF5',
   },
   resolvedTagText: { fontSize: FONT_SIZES.caption, fontWeight: '700', color: COLORS.successGreen },
   emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
@@ -1141,10 +1149,11 @@ const detailStyles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   sheetHeaderLeft: { flex: 1 },
-  sheetRefId: { fontSize: FONT_SIZES.caption, fontWeight: '800', color: COLORS.accentViolet, letterSpacing: 0.4, marginBottom: 6 },
+  sheetRefId: { fontSize: FONT_SIZES.caption, fontWeight: '800', color: COLORS.accentViolet, letterSpacing: 0.4, marginBottom: 8 },
   sheetBadgeRow: { flexDirection: 'row', gap: 6 },
+  // Touch-Friendly: bumped from 36 to 44
   closeButton: {
-    width: 36, height: 36, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 14,
     backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: COLORS.border,
   },
@@ -1159,34 +1168,35 @@ const detailStyles = StyleSheet.create({
     shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
-  sectionIconWrap: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { fontSize: FONT_SIZES.secondary, fontWeight: '700', color: COLORS.deepIndigo },
 
   // Incident info
   incidentTypeTitle: { fontSize: FONT_SIZES.cardTitle, fontWeight: '800', color: COLORS.deepIndigo, marginBottom: 6 },
-  incidentDesc: { fontSize: FONT_SIZES.secondary, color: COLORS.slateText, lineHeight: 20, marginBottom: 16 },
+  incidentDesc: { fontSize: FONT_SIZES.secondary, color: COLORS.slateText, lineHeight: 21, marginBottom: 16 },
   infoGrid: {
     backgroundColor: COLORS.surfaceMuted, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 4,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 11 },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 12 },
   infoLabel: { fontSize: FONT_SIZES.caption, color: COLORS.mutedText, fontWeight: '600', width: 68 },
-  infoValue: { fontSize: FONT_SIZES.caption, color: COLORS.deepIndigo, fontWeight: '700', flex: 1, lineHeight: 17 },
+  infoValue: { fontSize: FONT_SIZES.caption, color: COLORS.deepIndigo, fontWeight: '700', flex: 1, lineHeight: 18 },
   infoDivider: { height: 1, backgroundColor: COLORS.border },
 
   // Reporter
   reporterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   reporterAvatar: {
-    width: 44, height: 44, borderRadius: 14,
+    width: 46, height: 46, borderRadius: 14,
     backgroundColor: 'rgba(109,91,208,0.12)', alignItems: 'center', justifyContent: 'center',
   },
   reporterAvatarText: { fontSize: FONT_SIZES.secondary, fontWeight: '800', color: COLORS.accentViolet },
   reporterMeta: { flex: 1 },
   reporterName: { fontSize: FONT_SIZES.secondary, fontWeight: '700', color: COLORS.deepIndigo, marginBottom: 2 },
   reporterSub: { fontSize: FONT_SIZES.caption, color: COLORS.slateText },
+  // Touch-Friendly: 44px
   callButton: {
-    width: 38, height: 38, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 13,
     backgroundColor: COLORS.successGreen, alignItems: 'center', justifyContent: 'center',
   },
 
@@ -1230,7 +1240,7 @@ const detailStyles = StyleSheet.create({
   coordText: { fontSize: FONT_SIZES.caption, color: COLORS.slateText, fontWeight: '500', flex: 1 },
   gpsLockedBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#ECFDF5', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4,
+    backgroundColor: '#ECFDF5', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5,
   },
   gpsLockedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.successGreen },
   gpsLockedText: { fontSize: FONT_SIZES.tiny, fontWeight: '700', color: COLORS.successGreen },
@@ -1250,7 +1260,9 @@ const detailStyles = StyleSheet.create({
   timelineMeta: { fontSize: FONT_SIZES.caption, color: COLORS.slateText },
   timelinePending: { fontSize: FONT_SIZES.caption, color: COLORS.mutedText, fontStyle: 'italic' },
 
-  // Actions card
+  // Actions card — clear primary/secondary/destructive hierarchy:
+  // 1 solid primary action, 1 neutral secondary, 1 tinted tertiary,
+  // 1 destructive outline — each visually distinct by weight, not just color.
   actionsCard: {
     backgroundColor: COLORS.card, borderRadius: 20, borderWidth: 1,
     borderColor: COLORS.border, padding: 16, marginBottom: 16, gap: 10,
@@ -1260,33 +1272,33 @@ const detailStyles = StyleSheet.create({
   actionsTitle: { fontSize: FONT_SIZES.secondary, fontWeight: '800', color: COLORS.deepIndigo, marginBottom: 4 },
   actionPrimary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: COLORS.accentViolet, borderRadius: 14, paddingVertical: 14,
+    backgroundColor: COLORS.accentViolet, borderRadius: 14, height: 52,
     shadowColor: COLORS.accentViolet, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
   },
   actionDispatch: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: COLORS.criticalRed, borderRadius: 14, paddingVertical: 14,
+    backgroundColor: COLORS.criticalRed, borderRadius: 14, height: 52,
     shadowColor: COLORS.criticalRed, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
   },
   actionPrimaryText: { fontSize: FONT_SIZES.body, fontWeight: '700', color: '#FFFFFF' },
   actionUpdate: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: COLORS.surfaceMuted, borderRadius: 14, paddingVertical: 13,
+    backgroundColor: COLORS.surfaceMuted, borderRadius: 14, height: 48,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  actionUpdateText: { fontSize: FONT_SIZES.body, fontWeight: '700', color: COLORS.deepIndigo },
+  actionUpdateText: { fontSize: FONT_SIZES.secondary, fontWeight: '700', color: COLORS.deepIndigo },
   actionEvidence: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#EEF2FF', borderRadius: 14, paddingVertical: 13,
+    backgroundColor: '#EEF2FF', borderRadius: 14, height: 48,
     borderWidth: 1, borderColor: 'rgba(109,91,208,0.2)',
   },
-  actionEvidenceText: { fontSize: FONT_SIZES.body, fontWeight: '700', color: COLORS.accentViolet },
+  actionEvidenceText: { fontSize: FONT_SIZES.secondary, fontWeight: '700', color: COLORS.accentViolet },
   actionFalse: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 13,
-    borderWidth: 1, borderColor: 'rgba(220,38,38,0.15)',
+    backgroundColor: 'transparent', borderRadius: 14, height: 48,
+    borderWidth: 1.5, borderColor: 'rgba(220,38,38,0.3)',
   },
-  actionFalseText: { fontSize: FONT_SIZES.body, fontWeight: '700', color: COLORS.criticalRed },
+  actionFalseText: { fontSize: FONT_SIZES.secondary, fontWeight: '700', color: COLORS.criticalRed },
 });

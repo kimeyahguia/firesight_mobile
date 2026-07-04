@@ -242,12 +242,16 @@ export default function ProfileScreen() {
       setLoading(true);
       setError(null);
       const response = await fetch(`${API_ENDPOINTS.profileRead}?user_id=${userId}`);
-      if (!response.ok) throw new Error('Server error');
-      const data: ProfileData = await response.json();
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Server error');
+      }
+
       setProfileData(data);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
-      setError('Failed to load profile. Check your connection.');
+      setError(err instanceof Error ? err.message : 'Failed to load profile. Check your connection.');
     } finally {
       setLoading(false);
     }

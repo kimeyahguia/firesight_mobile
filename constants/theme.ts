@@ -58,16 +58,16 @@ export const ALERT_COLORS: Record<AlertType, { bg: string; text: string }> = {
 // ────────────────────────────────────────────────────────────
 
 export const FONT_SIZES = {
-  display: 40,       // Hero numbers, splash screens
-  heroTitle: 32,      // Hero Title
-  screenTitle: 28,    // Screen Title
-  sectionHeading: 22, // Section Heading
-  appBar: 20,         // App Bar
-  cardTitle: 18,      // Card Title / Subheading
-  body: 16,           // Body / Buttons / Inputs (most common)
-  secondary: 14,      // Secondary Text
-  caption: 12,        // Caption
-  tiny: 11,           // Tiny Labels
+  display: 40,        // Hero numbers, splash screens
+  heroTitle: 32,       // Hero Title / Screen Title (upper range)
+  screenTitle: 28,     // Screen Title (lower range)
+  sectionHeading: 22,  // Section Title
+  appBar: 20,          // App Bar
+  cardTitle: 18,       // Incident Title / Card Title
+  body: 16,            // Body / Button / Input Text
+  secondary: 14,       // Input Label / Card Description
+  caption: 12,         // Bottom Navigation / Timestamp
+  tiny: 12,            // Emergency Badge (bold)
 } as const;
 
 export type FontSizeKey = keyof typeof FONT_SIZES;
@@ -88,5 +88,5 @@ export const TYPOGRAPHY: Record<FontSizeKey, TypographyStyle> = {
   body: { fontSize: FONT_SIZES.body, lineHeight: 22, fontWeight: '400' },
   secondary: { fontSize: FONT_SIZES.secondary, lineHeight: 20, fontWeight: '400' },
   caption: { fontSize: FONT_SIZES.caption, lineHeight: 16, fontWeight: '500' },
-  tiny: { fontSize: FONT_SIZES.tiny, lineHeight: 14, fontWeight: '600' },
+  tiny: { fontSize: FONT_SIZES.tiny, lineHeight: 16, fontWeight: '700' },
 } as const;
