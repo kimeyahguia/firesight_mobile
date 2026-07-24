@@ -507,11 +507,6 @@ function MiniMapPreview({
           domStorageEnabled
           startInLoadingState
           mixedContentMode="always"
-          onLoadStart={() => console.log('[Map] WebView load start')}
-          onLoadEnd={() => console.log('[Map] WebView load end')}
-          onError={(e) => console.log('[Map] WebView onError ->', e.nativeEvent)}
-          onHttpError={(e) => console.log('[Map] WebView onHttpError ->', e.nativeEvent)}
-          onMessage={(e) => console.log('[Map] JS message ->', e.nativeEvent.data)}
           renderLoading={() => (
             <View style={styles.mapLoadingOverlay}>
               <Ionicons name="map-outline" size={22} color={COLORS.mutedText} />
@@ -592,11 +587,6 @@ function FullscreenMapModal({
               domStorageEnabled
               startInLoadingState
               mixedContentMode="always"
-              onLoadStart={() => console.log('[FullscreenMap] load start')}
-              onLoadEnd={() => console.log('[FullscreenMap] load end')}
-              onError={(e) => console.log('[FullscreenMap] onError ->', e.nativeEvent)}
-              onHttpError={(e) => console.log('[FullscreenMap] onHttpError ->', e.nativeEvent)}
-              onMessage={(e) => console.log('[FullscreenMap] JS message ->', e.nativeEvent.data)}
               renderLoading={() => (
                 <View style={styles.mapLoadingOverlay}>
                   <Ionicons name="map-outline" size={26} color={COLORS.mutedText} />
@@ -616,6 +606,108 @@ function FullscreenMapModal({
   );
 }
 
+// ── Success "Ticket" confirmation screen ──
+function SuccessTicket({
+  referenceId,
+  incidentType,
+  whatIsOnFire,
+  severity,
+  barangay,
+  streetLandmark,
+  submittedAt,
+  onSubmitAnother,
+}: {
+  referenceId: string;
+  incidentType: IncidentType;
+  whatIsOnFire: string;
+  severity: SeverityLevel;
+  barangay: string;
+  streetLandmark: string;
+  submittedAt: Date;
+  onSubmitAnother: () => void;
+}) {
+  const severityPalette = SEVERITY_COLORS[severity];
+  const dateLabel = submittedAt.toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const timeLabel = submittedAt.toLocaleTimeString('en-PH', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <View style={styles.ticketScreenWrap}>
+      <View style={styles.ticketSuccessIconWrap}>
+        <Ionicons name="checkmark-circle" size={56} color={COLORS.successGreen} />
+      </View>
+      <Text style={styles.ticketHeaderTitle}>Report Submitted</Text>
+      <Text style={styles.ticketHeaderSubtitle}>
+        Natanggap na ng BFP Lian ang iyong report. I-save o kunan ng screenshot ang reference number sa ibaba.
+      </Text>
+
+      <View style={styles.ticketCard}>
+        <View style={styles.ticketTopRow}>
+          <View>
+            <Text style={styles.ticketEyebrow}>FIRESIGHT REPORT</Text>
+            <Text style={styles.ticketRefId}>{referenceId}</Text>
+          </View>
+          <View style={styles.ticketStatusBadge}>
+            <View style={styles.ticketStatusDot} />
+            <Text style={styles.ticketStatusText}>Pending</Text>
+          </View>
+        </View>
+
+        <View style={styles.ticketPerforationRow}>
+          {Array.from({ length: 22 }).map((_, i) => (
+            <View key={i} style={styles.ticketPerforationDot} />
+          ))}
+        </View>
+
+        <View style={styles.ticketBody}>
+          <View style={styles.ticketRow}>
+            <Text style={styles.ticketLabel}>Incident Type</Text>
+            <Text style={styles.ticketValue}>{incidentType}</Text>
+          </View>
+          <View style={styles.ticketRow}>
+            <Text style={styles.ticketLabel}>What's on fire</Text>
+            <Text style={styles.ticketValue}>{whatIsOnFire || 'Not specified'}</Text>
+          </View>
+          <View style={styles.ticketRow}>
+            <Text style={styles.ticketLabel}>Severity</Text>
+            <View style={[styles.ticketSeverityBadge, { backgroundColor: severityPalette.bg }]}>
+              <Text style={styles.ticketSeverityText}>{severity}</Text>
+            </View>
+          </View>
+          <View style={styles.ticketRow}>
+            <Text style={styles.ticketLabel}>Location</Text>
+            <Text style={styles.ticketValue}>
+              {streetLandmark}{streetLandmark && barangay ? ', ' : ''}{barangay}
+            </Text>
+          </View>
+          <View style={styles.ticketRow}>
+            <Text style={styles.ticketLabel}>Submitted</Text>
+            <Text style={styles.ticketValue}>{dateLabel} · {timeLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.ticketFooterNote}>
+          <Ionicons name="information-circle-outline" size={13} color={COLORS.mutedText} />
+          <Text style={styles.ticketFooterNoteText}>
+            I-quote ang reference number na ito kapag tumawag o sumunod pa sa BFP Lian.
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity activeOpacity={0.85} style={styles.ticketSubmitAnotherButton} onPress={onSubmitAnother}>
+        <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+        <Text style={styles.ticketSubmitAnotherText}>Submit Another Report</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 // Main Screen
 // ────────────────────────────────────────────────────────────
@@ -624,6 +716,7 @@ export default function ReportScreen() {
   const [step, setStep] = useState(0);
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [referenceId, setReferenceId] = useState('');
+  const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -660,6 +753,11 @@ export default function ReportScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const spinValue = useRef(new Animated.Value(0)).current;
   const takePhotoPress = usePressScale();
+
+  // Guards against double-submit from double-tap, double mount events, or
+  // slow-network re-fires. This is a safety net, not a substitute for
+  // server-side idempotency (see submit_report.php notes).
+  const submitInFlightRef = useRef(false);
 
   const fetchUserProfile = useCallback(async () => {
     setProfileLoading(true);
@@ -828,6 +926,9 @@ export default function ReportScreen() {
   }
 
   async function handleSubmit() {
+    // ── Guard: block double-tap / double-invocation while a request is in flight ──
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setSubmitState('submitting');
 
     try {
@@ -864,8 +965,6 @@ export default function ReportScreen() {
         const match = /\.(\w+)$/.exec(filename);
         const ext = match ? match[1] : 'jpg';
 
-        console.log('[Submit] Photo URI ->', photoUri); // 👈 dagdag muna ito
-
         formData.append('photo', {
           uri: photoUri,
           name: filename,
@@ -882,10 +981,16 @@ export default function ReportScreen() {
           method: 'POST',
           body: formData,
           signal: controller.signal,
+          headers: {
+            Accept: 'application/json',
+            // Disabling response compression sidesteps a known RN/multipart
+            // gzip-decoding edge case that can surface as truncated/invalid JSON.
+            'Accept-Encoding': 'identity',
+          },
         });
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
-        console.log('[Submit] Fetch failed ->', fetchErr.name, fetchErr.message); // 👈 DAGDAG DITO
+        console.log('[Submit] Fetch failed ->', fetchErr.name, fetchErr.message);
         if (fetchErr.name === 'AbortError') {
           Alert.alert(
             'Request Timed Out',
@@ -934,11 +1039,14 @@ export default function ReportScreen() {
       }
 
       setReferenceId(result.reference_id);
+      setSubmittedAt(new Date());
       setSubmitState('done');
     } catch (err: any) {
       console.error('Unexpected submit error:', err);
       Alert.alert('Unexpected Error', err?.message || 'Something went wrong. Please try again.');
       setSubmitState('idle');
+    } finally {
+      submitInFlightRef.current = false;
     }
   }
 
@@ -953,6 +1061,7 @@ export default function ReportScreen() {
     setToggleAnswers({ peopleAtRisk: 'Unsure', fireActive: 'Yes', respondersOnSite: 'No' });
     setSubmitState('idle');
     setReferenceId('');
+    setSubmittedAt(null);
     setShowStep0Errors(false);
     setShowStep1Errors(false);
     goToStep(0);
@@ -964,6 +1073,31 @@ export default function ReportScreen() {
   });
 
   const fullAddress = `${streetLandmark}${streetLandmark && barangay ? ', ' : ''}${barangay}${barangay ? ', Batangas' : ''}`;
+
+  // ── Success state: replace the whole form with the ticket confirmation ──
+  if (submitState === 'done' && submittedAt) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <SuccessTicket
+            referenceId={referenceId}
+            incidentType={incidentType}
+            whatIsOnFire={whatIsOnFire}
+            severity={severity}
+            barangay={barangay}
+            streetLandmark={streetLandmark}
+            submittedAt={submittedAt}
+            onSubmitAnother={handleClear}
+          />
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -2210,5 +2344,163 @@ const styles = StyleSheet.create({
   },
   fullscreenMapBody: {
     flex: 1,
+  },
+
+  // ── Success Ticket styles ──
+  ticketScreenWrap: {
+    paddingTop: 24,
+    alignItems: 'center',
+  },
+  ticketSuccessIconWrap: {
+    marginBottom: 12,
+  },
+  ticketHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.deepIndigo,
+    marginBottom: 6,
+  },
+  ticketHeaderSubtitle: {
+    fontSize: 12.5,
+    color: COLORS.slateText,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
+    marginBottom: 24,
+  },
+  ticketCard: {
+    width: '100%',
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  ticketTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 18,
+    paddingBottom: 14,
+  },
+  ticketEyebrow: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: COLORS.mutedText,
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  ticketRefId: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: COLORS.deepIndigo,
+    letterSpacing: 0.3,
+  },
+  ticketStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF7E6',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  ticketStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D97706',
+  },
+  ticketStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  ticketPerforationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  ticketPerforationDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: COLORS.background,
+  },
+  ticketBody: {
+    padding: 18,
+    paddingTop: 14,
+  },
+  ticketRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  ticketLabel: {
+    fontSize: 12,
+    color: COLORS.mutedText,
+    fontWeight: '500',
+  },
+  ticketValue: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: COLORS.deepIndigo,
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  ticketSeverityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  ticketSeverityText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  ticketFooterNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: COLORS.surfaceMuted,
+    marginHorizontal: 18,
+    marginBottom: 18,
+    borderRadius: 12,
+    padding: 10,
+  },
+  ticketFooterNoteText: {
+    fontSize: 11,
+    color: COLORS.mutedText,
+    flex: 1,
+    lineHeight: 15,
+  },
+  ticketSubmitAnotherButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primaryOrange,
+    borderRadius: 16,
+    paddingVertical: 15,
+    width: '100%',
+    shadowColor: COLORS.primaryOrange,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  ticketSubmitAnotherText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
